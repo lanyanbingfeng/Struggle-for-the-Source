@@ -1,0 +1,27 @@
+# Godot editor cache and generated import output.
+.godot/
+*.translation
+
+# Project-local agent/tooling files; not required to run the game.
+.codex/
+
+# Intermediate generated art. Final assets belong in art/ground, art/resources,
+# art/structures, art/ui, or another intentional runtime asset directory.
+/art/generated/
+
+# Generated export/build workspaces.
+/android/
+/export/
+/build/
+/dist/
+
+# Local editor and operating-system files.
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Keep Godot *.import and *.uid files versioned: they preserve import settings
+# and stable resource/script UIDs.

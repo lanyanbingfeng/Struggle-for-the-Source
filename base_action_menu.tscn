@@ -1,0 +1,19 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://base_action_menu.gd" id="1_menu"]
+
+[node name="BaseActionMenu" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_menu")
+
+[node name="Backdrop" type="Button" parent="."]
+unique_name_in_owner = true
+offset_right = 640.0
+offset_bottom = 480.0
+mouse_filter = 0
+focus_mode = 0
+flat = true
+
+[node name="ButtonList" type="Control" parent="."]
+unique_name_in_owner = true
+mouse_filter = 1
