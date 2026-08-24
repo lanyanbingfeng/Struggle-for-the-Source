@@ -428,11 +428,12 @@ func _on_connection_failed() -> void:
 	start_discovery()
 
 func _on_server_disconnected() -> void:
-	var message: String = "房主已关闭房间"
-	if _join_rejected:
-		message = "加入房间失败"
+	if state != State.CONNECTING and state != State.IN_ROOM:
+		return
+	var join_was_rejected: bool = _join_rejected
 	_cleanup_client_connection()
-	_reject(message)
+	if not join_was_rejected:
+		_reject("房主已关闭房间")
 	start_discovery()
 
 func _on_peer_connected(_peer_id: int) -> void:
@@ -452,6 +453,7 @@ func _cleanup_client_connection() -> void:
 	_players.clear()
 	_room_snapshot.clear()
 	_is_host = false
+	_join_rejected = false
 	_set_state(State.IDLE, "")
 	room_left.emit()
 

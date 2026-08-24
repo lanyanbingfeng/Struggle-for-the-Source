@@ -20,6 +20,7 @@
 - [公平领地、可重复招募与双采集机器](memory/2026-08-24-territory-recruitment-harvest-machines.md)
 - [第二领地场景可见性修复](memory/2026-08-24-territory-editor-visibility-fix.md)
 - [局域网多人大厅与准备同步](memory/2026-08-24-lan-multiplayer-lobby.md)
+- [局域网错误密码弹窗修复](memory/2026-08-24-lan-password-error-dialog.md)
 
 ## 维护规则
 

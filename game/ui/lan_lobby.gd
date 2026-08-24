@@ -15,6 +15,7 @@ var _root: Control
 var _panel: PanelContainer
 var _title_label: Label
 var _status_label: Label
+var _error_dialog: AcceptDialog
 var _content: VBoxContainer
 var _room_list: ItemList
 var _room_detail: Label
@@ -96,6 +97,14 @@ func _build_shell() -> void:
 	_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_content.add_theme_constant_override("separation", 8)
 	column.add_child(_content)
+
+	_error_dialog = AcceptDialog.new()
+	_error_dialog.title = "无法完成操作"
+	_error_dialog.dialog_text = ""
+	_error_dialog.ok_button_text = "确定"
+	_error_dialog.exclusive = true
+	_error_dialog.min_size = Vector2i(360, 150)
+	add_child(_error_dialog)
 	_layout_panel()
 
 func _layout_panel() -> void:
@@ -437,6 +446,8 @@ func _on_room_left() -> void:
 
 func _on_action_rejected(message: String) -> void:
 	_status_label.text = message
+	_error_dialog.dialog_text = message
+	_error_dialog.popup_centered(Vector2i(360, 150))
 
 func _on_game_start_received(snapshot: Dictionary) -> void:
 	hide()
