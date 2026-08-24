@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="争源"
-run/main_scene="res://main.tscn"
+run/main_scene="res://game/main/main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 
@@ -19,9 +19,9 @@ config/icon="res://icon.svg"
 
 window/size/viewport_width=640
 window/size/viewport_height=480
+window/size/mode=3
 window/size/window_width_override=640
 window/size/window_height_override=480
-window/size/mode=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 

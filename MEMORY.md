@@ -6,10 +6,17 @@
 
 ## 记忆文档索引
 
+- [开始界面与游戏菜单](memory/2026-08-23-main-menu-pause-menu.md)
 - [首批瓦片资源及导入规范](memory/2026-08-22-tile-resources.md)
 - [伐木机器最终尺寸决定](memory/2026-08-23-lumber-machine-size.md)
 - [基地操作菜单交互](memory/2026-08-23-base-action-menu.md)
 - [鼠标边缘滚屏视角](memory/2026-08-23-camera-edge-scroll.md)
+- [随机树与临时砍伐测试](memory/2026-08-23-random-tree-harvest-test.md)
+- [树脚本类型注册兼容修复](memory/2026-08-23-tree-script-registration-fix.md)
+- [树木砍伐倒下动画序列帧](memory/2026-08-23-tree-fall-animation.md)
+- [资源 HUD 与自动伐木机器](memory/2026-08-23-resource-hud-auto-lumber-machine.md)
+- [菜单输入层与伐木机器朝向修复](memory/2026-08-23-pause-menu-lumber-machine-fixes.md)
+- [项目文件目录整理](memory/2026-08-23-project-file-organization.md)
 
 ## 维护规则
 

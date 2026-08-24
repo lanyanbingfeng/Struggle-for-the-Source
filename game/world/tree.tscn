@@ -1,0 +1,33 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://game/world/tree.gd" id="1_tree"]
+[ext_resource type="Texture2D" path="res://art/resources/resource_tree_oak_1x2.png" id="2_static"]
+[ext_resource type="SpriteFrames" path="res://game/world/tree_fall_frames.tres" id="3_fall"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hit"]
+size = Vector2(32, 64)
+
+[node name="HarvestTree" type="Node2D"]
+script = ExtResource("1_tree")
+
+[node name="Visuals" type="Node2D" parent="."]
+
+[node name="StaticSprite" type="Sprite2D" parent="Visuals"]
+texture_filter = 1
+position = Vector2(-16, -64)
+centered = false
+texture = ExtResource("2_static")
+
+[node name="FallSprite" type="AnimatedSprite2D" parent="Visuals"]
+texture_filter = 1
+sprite_frames = ExtResource("3_fall")
+animation = &"fall"
+centered = false
+position = Vector2(-16, -64)
+
+[node name="HitArea" type="Area2D" parent="."]
+input_pickable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HitArea"]
+position = Vector2(0, -32)
+shape = SubResource("RectangleShape2D_hit")
