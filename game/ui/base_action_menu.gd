@@ -10,24 +10,26 @@ const BUTTON_GAP: float = 6.0
 const BUTTON_POP_SCALE: float = 0.2
 const BUTTON_POP_DURATION: float = 0.2
 
+enum MenuMode { MAIN, RECRUIT }
+
 @onready var backdrop: Button = %Backdrop
 @onready var button_list: Control = %ButtonList
 
 var _base_screen_position: Vector2 = Vector2.ZERO
 var _open_tween: Tween
-var _action_configs: Array[Dictionary] = [
-	{"id": &"recruit", "text": "招募", "action": &"recruit", "disabled": false},
-	{"id": &"summon", "text": "召唤", "action": &"summon", "disabled": false},
-	{"id": &"upgrade", "text": "升级", "action": &"upgrade", "disabled": false},
-]
+var _menu_mode: MenuMode = MenuMode.MAIN
+var _action_configs: Array[Dictionary] = []
 
 func _ready() -> void:
 	backdrop.pressed.connect(close)
 	visible = false
+	_show_main_actions()
 	_rebuild_buttons()
 
 func open_at(screen_position: Vector2) -> void:
 	_base_screen_position = screen_position
+	_show_main_actions()
+	_rebuild_buttons()
 	_reposition_menu()
 	visible = true
 	_play_open_animation()
@@ -51,6 +53,7 @@ func _rebuild_buttons() -> void:
 	if not is_node_ready():
 		return
 	for child: Node in button_list.get_children():
+		button_list.remove_child(child)
 		child.queue_free()
 	for config: Dictionary in _action_configs:
 		var button: Button = _create_action_button(config)
@@ -88,9 +91,37 @@ func _make_button_style(_tint: Color) -> StyleBoxTexture:
 	return style
 
 func _on_action_button_pressed(action_id: StringName) -> void:
+	if action_id == &"recruit":
+		_show_recruit_actions()
+		_rebuild_buttons()
+		_reposition_menu()
+		_play_open_animation()
+		return
+	if action_id == &"recruit_back":
+		_show_main_actions()
+		_rebuild_buttons()
+		_reposition_menu()
+		_play_open_animation()
+		return
 	action_selected.emit(action_id)
 	print("基地操作: ", action_id)
 	close()
+
+func _show_main_actions() -> void:
+	_menu_mode = MenuMode.MAIN
+	_action_configs = [
+		{"id": &"recruit", "text": "招募", "action": &"recruit", "disabled": false},
+		{"id": &"summon", "text": "召唤", "action": &"summon", "disabled": false},
+		{"id": &"upgrade", "text": "升级", "action": &"upgrade", "disabled": false},
+	]
+
+func _show_recruit_actions() -> void:
+	_menu_mode = MenuMode.RECRUIT
+	_action_configs = [
+		{"id": &"lumber", "text": "伐木机", "action": &"recruit_lumber", "disabled": false},
+		{"id": &"quarry", "text": "采石机", "action": &"recruit_quarry", "disabled": false},
+		{"id": &"back", "text": "返回", "action": &"recruit_back", "disabled": false},
+	]
 
 func _reposition_menu() -> void:
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size

@@ -5,6 +5,8 @@ signal resources_changed(gold: int, wood: int, stone: int, iron: int)
 const DEVELOPMENT_GOLD: int = 9999
 const TREE_WOOD_REWARD: int = 10
 const TREE_GOLD_COST: int = 1
+const STONE_REWARD: int = 8
+const STONE_GOLD_COST: int = 1
 
 var gold: int = DEVELOPMENT_GOLD
 var wood: int = 0
@@ -26,6 +28,12 @@ func apply_tree_harvest() -> void:
 	gold = maxi(0, gold - TREE_GOLD_COST)
 	_emit_resources_changed()
 	print("树木倒下：木材 +", TREE_WOOD_REWARD, "，金币 -", TREE_GOLD_COST)
+
+func apply_stone_harvest() -> void:
+	stone += STONE_REWARD
+	gold = maxi(0, gold - STONE_GOLD_COST)
+	_emit_resources_changed()
+	print("石头采完：石头 +", STONE_REWARD, "，金币 -", STONE_GOLD_COST)
 
 func _emit_resources_changed() -> void:
 	resources_changed.emit(gold, wood, stone, iron)

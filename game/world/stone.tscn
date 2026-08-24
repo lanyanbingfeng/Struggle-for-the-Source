@@ -1,0 +1,22 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://game/world/stone.gd" id="1_stone"]
+[ext_resource type="Texture2D" path="res://art/resources/resource_stone_1x1.png" id="2_texture"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_stone"]
+size = Vector2(28, 24)
+
+[node name="HarvestStone" type="Node2D"]
+script = ExtResource("1_stone")
+
+[node name="Visual" type="Sprite2D" parent="."]
+texture_filter = 1
+position = Vector2(0, -16)
+texture = ExtResource("2_texture")
+
+[node name="HitArea" type="Area2D" parent="."]
+input_pickable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HitArea"]
+position = Vector2(0, -14)
+shape = SubResource("RectangleShape2D_stone")

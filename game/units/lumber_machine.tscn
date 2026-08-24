@@ -1,11 +1,21 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://game/units/lumber_machine.gd" id="1_machine"]
 [ext_resource type="Texture2D" path="res://art/resources/resource_lumber_machine_1x1.png" id="2_texture"]
+[ext_resource type="Texture2D" path="res://art/resources/resource_lumber_machine_saw.png" id="3_saw"]
 
 [node name="LumberMachine" type="Node2D"]
 script = ExtResource("1_machine")
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
+[node name="Visuals" type="Node2D" parent="."]
+
+[node name="Body" type="Sprite2D" parent="Visuals"]
 texture_filter = 1
 texture = ExtResource("2_texture")
+
+[node name="SawPivot" type="Node2D" parent="Visuals"]
+position = Vector2(10, 1)
+
+[node name="SawBlade" type="Sprite2D" parent="Visuals/SawPivot"]
+texture_filter = 1
+texture = ExtResource("3_saw")

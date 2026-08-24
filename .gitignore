@@ -2,8 +2,7 @@
 .godot/
 *.translation
 
-# Project-local agent/tooling files; not required to run the game.
-.codex/
+# Project-local Codex skills and MCP configuration are versioned.
 
 # Intermediate generated art. Final assets belong in art/ground, art/resources,
 # art/structures, art/ui, or another intentional runtime asset directory.

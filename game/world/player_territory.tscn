@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/world/player_territory.gd" id="1_territory"]
+
+[node name="PlayerTerritory" type="Node2D"]
+z_index = -1
+script = ExtResource("1_territory")
+
+[node name="PlayerLabel" type="Label" parent="."]
+mouse_filter = 2
+theme_override_font_sizes/font_size = 14

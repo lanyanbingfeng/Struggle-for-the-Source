@@ -17,6 +17,9 @@
 - [资源 HUD 与自动伐木机器](memory/2026-08-23-resource-hud-auto-lumber-machine.md)
 - [菜单输入层与伐木机器朝向修复](memory/2026-08-23-pause-menu-lumber-machine-fixes.md)
 - [项目文件目录整理](memory/2026-08-23-project-file-organization.md)
+- [公平领地、可重复招募与双采集机器](memory/2026-08-24-territory-recruitment-harvest-machines.md)
+- [第二领地场景可见性修复](memory/2026-08-24-territory-editor-visibility-fix.md)
+- [局域网多人大厅与准备同步](memory/2026-08-24-lan-multiplayer-lobby.md)
 
 ## 维护规则
 

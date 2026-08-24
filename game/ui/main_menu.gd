@@ -2,6 +2,7 @@ class_name MainMenu
 extends CanvasLayer
 
 signal start_requested(multiplayer_mode: bool)
+signal multiplayer_requested
 
 const BACKGROUND_TEXTURE: Texture2D = preload("res://art/ui/main_menu_background.png")
 const MENU_WIDTH: float = 270.0
@@ -223,7 +224,7 @@ func _on_single_player_pressed() -> void:
 	start_requested.emit(false)
 
 func _on_multiplayer_pressed() -> void:
-	start_requested.emit(true)
+	multiplayer_requested.emit()
 
 func _on_settings_pressed() -> void:
 	_show_modal("设置", "当前版本保留像素风显示与基础操作配置。\n\n进入游戏后按 Esc 可打开游戏菜单；单人模式会暂停时间，多人模式不会暂停。")

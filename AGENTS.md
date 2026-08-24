@@ -10,7 +10,7 @@
 
 ## 项目级 Godot Skill 使用规范
 
-- 项目级 Skill 安装在 `D:/GodotProjects/争源/.codex/skills/`，优先使用这里的 Skill，不要求也不应为了本项目任务安装到全局目录。
+- 项目级 Skill 安装在项目根目录的 `.codex/skills/`，优先使用这里的 Skill，不要求也不应为了本项目任务安装到全局目录。
 - 遇到 Godot 相关问题时，应根据任务适当使用对应 Skill；不能因为问题看起来简单就默认跳过相关 Skill。使用前先读取对应目录中的完整 `SKILL.md`，必要时再读取它引用的参考文档。
 - 通用 Godot 引擎问题、场景/节点架构、信号、Resource、Autoload、项目设置和导出配置：使用 `godot`。
 - `.gd` 文件编写、审查、静态类型、协程、状态机、信号设计和 GDScript 性能：使用 `godot-gdscript`。
@@ -33,7 +33,7 @@
 
 - 涉及 Godot 编辑器、场景、节点、资源、脚本调试、运行状态或编辑器输出的操作，优先使用已连接的 Godot MCP Server。
 - 当前使用 `@coding-solo/godot-mcp` 的 stdio MCP 服务，由 Codex 通过 `npx.cmd --yes @coding-solo/godot-mcp` 启动。
-- Codex 配置中的 `GODOT_PATH` 指向 `C:\Users\ZhuanZ\Desktop\Godot_v4.7.1-stable_win64.exe`。
+- Codex 配置中的 `GODOT_PATH` 必须指向本机有效的 Godot 可执行文件；当前项目按 Godot 4.7.x 验证。
 - 该服务通过 Godot CLI 启动、运行和检查项目，不依赖旧的 GodotMCP 编辑器插件面板。
 - 能通过 MCP 完成的操作，不要改用模拟鼠标键盘或绕过 Godot 编辑器的方式完成。
 - 普通代码阅读、文本搜索和版本控制检查可以直接使用本地文件工具；涉及 Godot 编辑器状态时仍以 MCP 返回结果为准。
@@ -42,7 +42,7 @@
 
 如果 Godot MCP 工具不可用、请求失败或返回连接错误：
 
-1. 检查 Godot 是否正在运行并打开本项目 `D:/GodotProjects/争源`。
+1. 检查 Godot 是否正在运行并打开当前项目根目录。
 2. 检查 Codex 全局 MCP 配置中的 `godot_mcp` 是否使用 `npx.cmd` 和 `@coding-solo/godot-mcp`。
 3. 检查 `GODOT_PATH` 是否指向有效的 Godot 可执行文件。
 4. 检查 Node.js/npm 是否可用，必要时重新启动该 stdio MCP 服务。

@@ -16,6 +16,8 @@ const HARVEST_VERTICAL_OFFSET: float = -16.0
 @onready var fall_sprite: AnimatedSprite2D = $Visuals/FallSprite
 @onready var hit_area: Area2D = $HitArea
 
+@export var territory_id: int = 0
+
 var _state: State = State.HEALTHY
 var _hit_count: int = 0
 var _visual_origin: Vector2
