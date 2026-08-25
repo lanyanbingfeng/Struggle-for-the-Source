@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="UnitDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://game/data/unit_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://game/units/treant_unit.tscn" id="2_scene"]
+[ext_resource type="Texture2D" path="res://art/ui/cards/card_treant_art.png" id="3_texture"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = &"worldroot_guardian"
+display_name = "世界根守卫"
+category = 1
+rarity = 4
+scene = ExtResource("2_scene")
+card_texture = ExtResource("3_texture")
+role_name = "传说守护"
+description = "传说中的世界根化身，拥有当前召唤池最高的生命与防御，光合作用范围和治疗比例也最高。"
+max_health = 800
+attack = 70
+defense = 95
+attack_interval_seconds = 1.65
+attack_range_tiles = 1.5
+chase_range_tiles = 4.75
+evasion_chance = 0.08
+vision_radius_tiles = 9.0
+movement_speed = 82.0
+max_mana = 150
+mana_regen_per_second = 9.0
+skill_id = &"photosynthesis"
+skill_mana_cost = 40
+skill_heal_percent = 0.24
+skill_radius_tiles = 5.0
+skill_move_speed_multiplier = 0.7
+skill_slow_duration_seconds = 2.5
+footprint_tiles = 1
+formation_spacing = 48.0

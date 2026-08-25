@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="UnitCatalog" load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://game/data/unit_catalog.gd" id="1_script"]
+[ext_resource type="Resource" path="res://game/data/lumber_machine_definition.tres" id="2_lumber"]
+[ext_resource type="Resource" path="res://game/data/quarry_machine_definition.tres" id="3_quarry"]
+[ext_resource type="Resource" path="res://game/data/treant_definition.tres" id="4_treant"]
+[ext_resource type="Script" path="res://game/data/unit_definition.gd" id="5_definition"]
+[ext_resource type="Resource" path="res://game/data/ironbark_treant_definition.tres" id="6_rare"]
+[ext_resource type="Resource" path="res://game/data/ancient_treant_definition.tres" id="7_epic"]
+[ext_resource type="Resource" path="res://game/data/worldroot_guardian_definition.tres" id="8_legendary"]
+[ext_resource type="Resource" path="res://game/data/explorer_definition.tres" id="9_explorer"]
+[ext_resource type="Resource" path="res://game/data/builder_definition.tres" id="10_builder"]
+[ext_resource type="Resource" path="res://game/data/swordsman_definition.tres" id="11_swordsman"]
+
+[resource]
+script = ExtResource("1_script")
+definitions = Array[ExtResource("5_definition")]([ExtResource("2_lumber"), ExtResource("3_quarry"), ExtResource("9_explorer"), ExtResource("10_builder"), ExtResource("4_treant"), ExtResource("6_rare"), ExtResource("7_epic"), ExtResource("8_legendary"), ExtResource("11_swordsman")])
+recruitment_pool = Array[ExtResource("5_definition")]([ExtResource("2_lumber"), ExtResource("3_quarry"), ExtResource("9_explorer"), ExtResource("10_builder")])
+summon_pool = Array[ExtResource("5_definition")]([ExtResource("4_treant"), ExtResource("6_rare"), ExtResource("7_epic"), ExtResource("8_legendary"), ExtResource("11_swordsman")])

@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="BuildingDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://game/data/building_definition.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://art/structures/structure_resource_workshop_2x2.png" id="2_texture"]
+[ext_resource type="Texture2D" path="res://art/ui/cards/card_resource_workshop_art.png" id="3_card"]
+
+[resource]
+script = ExtResource("1_script")
+building_id = &"quarry_yard"
+display_name = "采石场"
+description = "靠近石头建造，每6秒生产4石头。"
+texture = ExtResource("2_texture")
+card_texture = ExtResource("3_card")
+tint = Color(0.86, 0.9, 0.94, 1)
+icon_text = "石"
+max_health = 600
+defense = 30
+cost_gold = 150
+cost_wood = 80
+required_resource_type = &"stone"
+required_resource_radius_tiles = 3.5
+production_resource_type = &"stone"
+production_amount = 4
+production_interval_seconds = 6.0

@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="UnitDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://game/data/unit_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://game/units/builder_unit.tscn" id="2_scene"]
+[ext_resource type="Texture2D" path="res://art/ui/cards/card_builder_art.png" id="3_texture"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = &"builder"
+display_name = "建筑工人"
+category = 0
+rarity = 0
+scene = ExtResource("2_scene")
+card_texture = ExtResource("3_texture")
+role_name = "领地建设"
+description = "只能在己方领地内活动，可在当前位置建设资源生产建筑。"
+max_health = 150
+attack = 0
+defense = 10
+evasion_chance = 0.05
+vision_radius_tiles = 6.0
+movement_speed = 100.0
+footprint_tiles = 1
+formation_spacing = 38.0
+recruit_cost_gold = 250
+can_build_structures = true

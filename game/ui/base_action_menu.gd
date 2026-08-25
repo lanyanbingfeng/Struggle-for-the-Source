@@ -10,24 +10,38 @@ const BUTTON_GAP: float = 6.0
 const BUTTON_POP_SCALE: float = 0.2
 const BUTTON_POP_DURATION: float = 0.2
 
-enum MenuMode { MAIN, RECRUIT }
-
 @onready var backdrop: Button = %Backdrop
 @onready var button_list: Control = %ButtonList
 
 var _base_screen_position: Vector2 = Vector2.ZERO
+var _follow_target: Node2D
+var _screen_offset: Vector2 = Vector2.ZERO
+var _menu_size: Vector2 = Vector2.ZERO
 var _open_tween: Tween
-var _menu_mode: MenuMode = MenuMode.MAIN
 var _action_configs: Array[Dictionary] = []
 
 func _ready() -> void:
+	backdrop.set_meta(&"allow_edge_scroll", true)
 	backdrop.pressed.connect(close)
 	visible = false
 	_show_main_actions()
 	_rebuild_buttons()
 
-func open_at(screen_position: Vector2) -> void:
-	_base_screen_position = screen_position
+func _process(_delta: float) -> void:
+	if not visible:
+		return
+	if not is_instance_valid(_follow_target):
+		close()
+		return
+	var current_screen_position: Vector2 = _target_screen_position()
+	if not current_screen_position.is_equal_approx(_base_screen_position):
+		_base_screen_position = current_screen_position
+		_position_menu()
+
+func open_for(target: Node2D, screen_offset: Vector2 = Vector2.ZERO) -> void:
+	_follow_target = target
+	_screen_offset = screen_offset
+	_base_screen_position = _target_screen_position()
 	_show_main_actions()
 	_rebuild_buttons()
 	_reposition_menu()
@@ -38,12 +52,13 @@ func close() -> void:
 	if is_instance_valid(_open_tween):
 		_open_tween.kill()
 	visible = false
+	_follow_target = null
 
-func toggle_at(screen_position: Vector2) -> void:
-	if visible:
+func toggle_for(target: Node2D, screen_offset: Vector2 = Vector2.ZERO) -> void:
+	if visible and _follow_target == target:
 		close()
 	else:
-		open_at(screen_position)
+		open_for(target, screen_offset)
 
 func set_action_configs(configs: Array[Dictionary]) -> void:
 	_action_configs = configs
@@ -64,6 +79,7 @@ func _create_action_button(config: Dictionary) -> Button:
 	button.custom_minimum_size = BUTTON_SIZE
 	button.size = BUTTON_SIZE
 	button.text = str(config.get("text", ""))
+	button.tooltip_text = str(config.get("tooltip", ""))
 	button.disabled = bool(config.get("disabled", false))
 	button.focus_mode = Control.FOCUS_ALL
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -91,50 +107,57 @@ func _make_button_style(_tint: Color) -> StyleBoxTexture:
 	return style
 
 func _on_action_button_pressed(action_id: StringName) -> void:
-	if action_id == &"recruit":
-		_show_recruit_actions()
-		_rebuild_buttons()
-		_reposition_menu()
-		_play_open_animation()
-		return
-	if action_id == &"recruit_back":
-		_show_main_actions()
-		_rebuild_buttons()
-		_reposition_menu()
-		_play_open_animation()
-		return
 	action_selected.emit(action_id)
 	print("基地操作: ", action_id)
 	close()
 
 func _show_main_actions() -> void:
-	_menu_mode = MenuMode.MAIN
 	_action_configs = [
 		{"id": &"recruit", "text": "招募", "action": &"recruit", "disabled": false},
-		{"id": &"summon", "text": "召唤", "action": &"summon", "disabled": false},
+		{
+			"id": &"summon",
+			"text": "召唤",
+			"action": &"summon",
+			"disabled": false,
+			"tooltip": "消耗10金币召唤一次\n费用支付后不可退还",
+		},
 		{"id": &"upgrade", "text": "升级", "action": &"upgrade", "disabled": false},
 	]
 
-func _show_recruit_actions() -> void:
-	_menu_mode = MenuMode.RECRUIT
-	_action_configs = [
-		{"id": &"lumber", "text": "伐木机", "action": &"recruit_lumber", "disabled": false},
-		{"id": &"quarry", "text": "采石机", "action": &"recruit_quarry", "disabled": false},
-		{"id": &"back", "text": "返回", "action": &"recruit_back", "disabled": false},
-	]
+func set_summon_tooltip(tooltip: String) -> void:
+	_set_action_tooltip(&"summon", tooltip)
+
+func set_upgrade_tooltip(tooltip: String) -> void:
+	_set_action_tooltip(&"upgrade", tooltip)
+
+func _set_action_tooltip(action_id: StringName, tooltip: String) -> void:
+	for config: Dictionary in _action_configs:
+		if StringName(str(config.get("action", ""))) == action_id:
+			config["tooltip"] = tooltip
+	_rebuild_buttons()
+	if visible:
+		_reposition_menu()
 
 func _reposition_menu() -> void:
+	_menu_size = _layout_buttons()
+	button_list.size = _menu_size
+	button_list.pivot_offset = _menu_size / 2.0
+	_position_menu()
+
+func _position_menu() -> void:
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-	var menu_size: Vector2 = _layout_buttons()
-	button_list.size = menu_size
 	var menu_position: Vector2 = Vector2(
-		_base_screen_position.x - menu_size.x / 2.0,
-		_base_screen_position.y - menu_size.y - MENU_GAP
+		_base_screen_position.x - _menu_size.x / 2.0,
+		_base_screen_position.y - _menu_size.y - MENU_GAP
 	)
-	menu_position.x = clampf(menu_position.x, 8.0, maxf(8.0, viewport_size.x - menu_size.x - 8.0))
-	menu_position.y = clampf(menu_position.y, 8.0, maxf(8.0, viewport_size.y - menu_size.y - 8.0))
+	menu_position.x = clampf(menu_position.x, 8.0, maxf(8.0, viewport_size.x - _menu_size.x - 8.0))
+	menu_position.y = clampf(menu_position.y, 8.0, maxf(8.0, viewport_size.y - _menu_size.y - 8.0))
 	button_list.position = menu_position
-	button_list.pivot_offset = menu_size / 2.0
+
+func _target_screen_position() -> Vector2:
+	if not is_instance_valid(_follow_target):
+		return Vector2.ZERO
+	return _follow_target.get_global_transform_with_canvas().origin + _screen_offset
 
 func _layout_buttons() -> Vector2:
 	var button_count: int = button_list.get_child_count()

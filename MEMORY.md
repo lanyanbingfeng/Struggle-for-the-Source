@@ -21,6 +21,16 @@
 - [第二领地场景可见性修复](memory/2026-08-24-territory-editor-visibility-fix.md)
 - [局域网多人大厅与准备同步](memory/2026-08-24-lan-multiplayer-lobby.md)
 - [局域网错误密码弹窗修复](memory/2026-08-24-lan-password-error-dialog.md)
+- [权威领地同步、战争迷雾与树人编队](memory/2026-08-24-authoritative-gameplay-fog-treant.md)
+- [单位单选强类型数组修复](memory/2026-08-24-unit-selection-typed-array-fix.md)
+- [基地 UI 跟随、A* 寻路与树人卡牌](memory/2026-08-24-base-ui-astar-treant-card.md)
+- [九级基地召唤、卡牌招募与稀有矿物](memory/2026-08-24-base-progression-rare-minerals.md)
+- [百万格世界、人机、机器升级与探索者扩张](memory/2026-08-24-large-world-ai-machine-explorer.md)
+- [区块资源流送、迷雾实体裁剪与纯战斗召唤池](memory/2026-08-24-resource-streaming-fog-summon.md)
+- [不可取消召唤、共享战斗组件与建筑工人](memory/2026-08-25-combat-builder-structures.md)
+- [高清卡牌立绘与建筑选择美化](memory/2026-08-25-card-art-ui-polish.md)
+- [编辑器重载矿物信号竞态修复](memory/2026-08-25-editor-reload-mineral-signal-fix.md)
+- [本地视角阵营着色规则](memory/2026-08-25-local-faction-tints.md)
 
 ## 维护规则
 

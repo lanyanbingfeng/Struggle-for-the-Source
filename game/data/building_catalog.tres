@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BuildingCatalog" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://game/data/building_catalog.gd" id="1_script"]
+[ext_resource type="Script" path="res://game/data/building_definition.gd" id="2_definition"]
+[ext_resource type="Resource" path="res://game/data/lumber_camp_definition.tres" id="3_lumber"]
+[ext_resource type="Resource" path="res://game/data/quarry_yard_definition.tres" id="4_quarry"]
+[ext_resource type="Resource" path="res://game/data/iron_mine_building_definition.tres" id="5_iron"]
+[ext_resource type="Resource" path="res://game/data/gold_mine_building_definition.tres" id="6_gold"]
+[ext_resource type="Resource" path="res://game/data/diamond_mine_building_definition.tres" id="7_diamond"]
+[ext_resource type="Resource" path="res://game/data/coin_table_definition.tres" id="8_coin"]
+
+[resource]
+script = ExtResource("1_script")
+definitions = Array[ExtResource("2_definition")]([ExtResource("3_lumber"), ExtResource("4_quarry"), ExtResource("5_iron"), ExtResource("6_gold"), ExtResource("7_diamond"), ExtResource("8_coin")])

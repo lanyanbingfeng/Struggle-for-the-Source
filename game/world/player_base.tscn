@@ -1,0 +1,41 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://game/world/player_base.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://art/structures/structure_base_3x3.png" id="2_texture"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_base"]
+size = Vector2(82, 82)
+
+[node name="PlayerBase" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture_filter = 1
+texture = ExtResource("2_texture")
+
+[node name="LevelLabel" type="Label" parent="."]
+offset_left = -39.0
+offset_top = -65.0
+offset_right = 39.0
+offset_bottom = -45.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.92549, 0.658824, 1)
+theme_override_colors/font_outline_color = Color(0.101961, 0.0745098, 0.0470588, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 12
+text = "基地 Lv.1"
+horizontal_alignment = 1
+
+[node name="Interaction" type="Area2D" parent="."]
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Interaction"]
+shape = SubResource("RectangleShape2D_base")
+
+[node name="ObstacleBody" type="StaticBody2D" parent="."]
+collision_layer = 2
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ObstacleBody"]
+shape = SubResource("RectangleShape2D_base")

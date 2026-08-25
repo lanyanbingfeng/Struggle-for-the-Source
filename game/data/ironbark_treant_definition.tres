@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="UnitDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://game/data/unit_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://game/units/treant_unit.tscn" id="2_scene"]
+[ext_resource type="Texture2D" path="res://art/ui/cards/card_treant_art.png" id="3_texture"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = &"ironbark_treant"
+display_name = "铁木树人"
+category = 1
+rarity = 2
+scene = ExtResource("2_scene")
+card_texture = ExtResource("3_texture")
+role_name = "稀有重装"
+description = "树皮如铁的稀有守卫，拥有更高的生命、防御与视野；光合作用治疗最低血量友军并短暂降低自身移速。"
+max_health = 420
+attack = 32
+defense = 58
+attack_interval_seconds = 1.5
+attack_range_tiles = 1.3
+chase_range_tiles = 5.25
+evasion_chance = 0.05
+vision_radius_tiles = 7.5
+movement_speed = 88.0
+max_mana = 110
+mana_regen_per_second = 7.5
+skill_id = &"photosynthesis"
+skill_mana_cost = 45
+skill_heal_percent = 0.18
+skill_radius_tiles = 4.25
+skill_move_speed_multiplier = 0.65
+skill_slow_duration_seconds = 3.0
+footprint_tiles = 1
+formation_spacing = 44.0

@@ -11,6 +11,7 @@ const HARVEST_SIDE_DISTANCE: float = 28.0
 const HARVEST_VERTICAL_OFFSET: float = -14.0
 
 @export var territory_id: int = 0
+@export var resource_type: StringName = &"stone"
 
 @onready var visual: Sprite2D = $Visual
 

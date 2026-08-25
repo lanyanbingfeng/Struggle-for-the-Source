@@ -1,0 +1,32 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/world/production_building.gd" id="1_script"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_building"]
+size = Vector2(56, 46)
+
+[node name="ProductionBuilding" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture_filter = 1
+
+[node name="IconLabel" type="Label" parent="."]
+offset_left = -10.0
+offset_top = 2.0
+offset_right = 10.0
+offset_bottom = 22.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.929412, 0.670588, 1)
+theme_override_colors/font_outline_color = Color(0.105882, 0.0666667, 0.0392157, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 1
+
+[node name="ObstacleBody" type="StaticBody2D" parent="."]
+collision_layer = 2
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ObstacleBody"]
+position = Vector2(0, 8)
+shape = SubResource("RectangleShape2D_building")

@@ -135,7 +135,8 @@ func create_room(
 		_local_player_name,
 		1,
 		1,
-		true
+		true,
+		1
 	)
 	_set_state(State.IN_ROOM, "房间已创建")
 	_broadcast_snapshot()
@@ -240,6 +241,7 @@ func request_start_game() -> void:
 	if not _can_start_game():
 		_reject("所有玩家准备后才能开始游戏")
 		return
+	_settings["resource_seed"] = randi()
 	var snapshot: Dictionary = _build_snapshot()
 	_rpc_start_game.rpc(snapshot)
 	game_start_received.emit(snapshot.duplicate(true))
@@ -262,7 +264,7 @@ func _rpc_submit_join(password: String, player_name: String) -> void:
 		return
 	var seat: Vector2i = _find_first_empty_seat()
 	var unique_name: String = _make_unique_player_name(_sanitize_name(player_name, "玩家%d" % peer_id))
-	_players[peer_id] = _make_player(peer_id, unique_name, seat.x, seat.y, false)
+	_players[peer_id] = _make_player(peer_id, unique_name, seat.x, seat.y, false, _find_first_unused_territory_id())
 	var snapshot: Dictionary = _build_snapshot()
 	_rpc_join_result.rpc_id(peer_id, true, "加入成功", snapshot)
 	_broadcast_snapshot()
@@ -367,15 +369,25 @@ func _build_snapshot() -> Dictionary:
 		"can_start": _can_start_game(),
 	}
 
-func _make_player(peer_id: int, player_name: String, team: int, slot: int, host: bool) -> Dictionary:
+func _make_player(peer_id: int, player_name: String, team: int, slot: int, host: bool, territory_id: int) -> Dictionary:
 	return {
 		"peer_id": peer_id,
 		"name": player_name,
 		"team": team,
 		"slot": slot,
+		"territory_id": territory_id,
 		"ready": false,
 		"is_host": host,
 	}
+
+func _find_first_unused_territory_id() -> int:
+	var used_ids: Dictionary = {}
+	for player_value: Variant in _players.values():
+		used_ids[int((player_value as Dictionary).get("territory_id", 0))] = true
+	for territory_id: int in range(1, MAX_NETWORK_CLIENTS + 1):
+		if not used_ids.has(territory_id):
+			return territory_id
+	return _players.size() + 1
 
 func _find_first_empty_seat() -> Vector2i:
 	var team_count: int = int(_settings.get("team_count", 2))

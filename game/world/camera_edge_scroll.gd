@@ -58,4 +58,16 @@ func _clamp_axis(value: float, minimum: float, maximum: float, center: float) ->
 
 func _is_pointer_over_ui() -> bool:
 	var hovered_control: Control = get_viewport().gui_get_hovered_control()
-	return hovered_control != null and hovered_control.is_visible_in_tree()
+	if hovered_control == null or not hovered_control.is_visible_in_tree():
+		return false
+	return _control_blocks_edge_scroll(hovered_control)
+
+func _control_blocks_edge_scroll(control: Control) -> bool:
+	if control == null:
+		return false
+	var current: Node = control
+	while current is Control:
+		if bool(current.get_meta(&"allow_edge_scroll", false)):
+			return false
+		current = current.get_parent()
+	return true

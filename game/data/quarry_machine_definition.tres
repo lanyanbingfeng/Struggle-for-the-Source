@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="UnitDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://game/data/unit_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://game/units/quarry_machine.tscn" id="2_scene"]
+[ext_resource type="Texture2D" path="res://art/resources/resource_quarry_machine_1x1.png" id="3_texture"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = &"quarry"
+display_name = "采石机"
+category = 0
+scene = ExtResource("2_scene")
+card_texture = ExtResource("3_texture")
+role_name = "矿物采集"
+description = "自动寻找领地内的矿物；升级后依次解锁铁矿、金矿与钻石。"
+recruit_cost_gold = 100
+max_health = 170
+attack = 0
+defense = 16
+vision_radius_tiles = 4.0
+movement_speed = 88.0
+footprint_tiles = 1
+formation_spacing = 40.0

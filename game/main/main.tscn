@@ -13,6 +13,14 @@
 [ext_resource type="PackedScene" path="res://game/world/player_territory.tscn" id="10_territory"]
 [ext_resource type="Script" path="res://game/systems/lan_session.gd" id="11_lan_session"]
 [ext_resource type="PackedScene" path="res://game/ui/lan_lobby.tscn" id="12_lan_lobby"]
+[ext_resource type="Script" path="res://game/world/fog_of_war.gd" id="14_fog"]
+[ext_resource type="Script" path="res://game/world/world_command_overlay.gd" id="15_command_overlay"]
+[ext_resource type="PackedScene" path="res://game/ui/developer_panel.tscn" id="16_developer"]
+[ext_resource type="PackedScene" path="res://game/ui/summon_card_menu.tscn" id="17_summon_cards"]
+[ext_resource type="Script" path="res://game/world/world_pathfinder.gd" id="18_pathfinder"]
+[ext_resource type="PackedScene" path="res://game/ui/unit_command_panel.tscn" id="19_unit_commands"]
+[ext_resource type="Script" path="res://game/systems/simple_ai_controller.gd" id="20_ai"]
+[ext_resource type="Script" path="res://game/world/world_resource_streamer.gd" id="21_resource_streamer"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_4c57u"]
 texture = ExtResource("2_lquwl")
@@ -36,11 +44,11 @@ tile_set = SubResource("TileSet_efxa6")
 
 [node name="Base" type="Sprite2D" parent="." unique_id=799818213]
 texture_filter = 1
-position = Vector2(816, 1616)
+position = Vector2(400, 400)
 texture = ExtResource("2_base")
 
 [node name="BaseInteraction" type="Area2D" parent="." unique_id=880105886]
-position = Vector2(816, 1616)
+position = Vector2(400, 400)
 script = ExtResource("3_interaction")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="BaseInteraction" unique_id=1099928628]
@@ -52,30 +60,52 @@ shape = SubResource("RectangleShape2D_base")
 
 [node name="Player1Territory" parent="Territories" instance=ExtResource("10_territory")]
 player_id = 1
-cell_rect = Rect2i(15, 40, 20, 20)
+cell_rect = Rect2i(2, 2, 20, 20)
 territory_color = Color(0.396078, 0.721569, 1, 1)
 
 [node name="Player2Territory" parent="Territories" instance=ExtResource("10_territory")]
 player_id = 2
-cell_rect = Rect2i(37, 40, 20, 20)
+cell_rect = Rect2i(26, 2, 20, 20)
 territory_color = Color(1, 0.545098, 0.447059, 1)
 
 [node name="TestBases" type="Node2D" parent="."]
 
 [node name="TestBase2" type="Sprite2D" parent="TestBases"]
 texture_filter = 1
-position = Vector2(1520, 1616)
+position = Vector2(1168, 400)
 modulate = Color(1, 0.636078, 0.557647, 1)
 texture = ExtResource("2_base")
+
+[node name="Bases" type="Node2D" parent="."]
+
+[node name="Buildings" type="Node2D" parent="."]
+y_sort_enabled = true
 
 [node name="Trees" type="Node2D" parent="." unique_id=2122588471]
 y_sort_enabled = true
 
-[node name="Stones" type="Node2D" parent="."]
+[node name="Mineables" type="Node2D" parent="."]
+
+[node name="Stones" type="Node2D" parent="Mineables"]
+y_sort_enabled = true
+
+[node name="RareMinerals" type="Node2D" parent="Mineables"]
 y_sort_enabled = true
 
 [node name="Units" type="Node2D" parent="." unique_id=2122588472]
 y_sort_enabled = true
+
+[node name="WorldCommandOverlay" type="Node2D" parent="."]
+script = ExtResource("15_command_overlay")
+
+[node name="WorldPathfinder" type="Node" parent="."]
+script = ExtResource("18_pathfinder")
+
+[node name="WorldResourceStreamer" type="Node" parent="."]
+script = ExtResource("21_resource_streamer")
+
+[node name="FogOfWar" type="Node2D" parent="."]
+script = ExtResource("14_fog")
 
 [node name="ResourceManager" type="Node" parent="." unique_id=2122588473]
 script = ExtResource("6_resources")
@@ -87,6 +117,15 @@ script = ExtResource("11_lan_session")
 layer = 20
 script = ExtResource("7_hud")
 
+[node name="DeveloperPanel" parent="." instance=ExtResource("16_developer")]
+
+[node name="UnitCommandPanel" parent="." instance=ExtResource("19_unit_commands")]
+
+[node name="SimpleAIController" type="Node" parent="."]
+script = ExtResource("20_ai")
+
+[node name="SummonCardMenu" parent="." instance=ExtResource("17_summon_cards")]
+
 [node name="MainMenu" parent="." unique_id=2122588475 instance=ExtResource("8_main_menu")]
 
 [node name="LanLobby" parent="." instance=ExtResource("12_lan_lobby")]
@@ -94,15 +133,15 @@ script = ExtResource("7_hud")
 [node name="PauseMenu" parent="." unique_id=2122588476 instance=ExtResource("9_pause_menu")]
 
 [node name="MapCamera" type="Camera2D" parent="." unique_id=1940920600]
-position = Vector2(1168, 1616)
+position = Vector2(784, 400)
 zoom = Vector2(0.75, 0.75)
 script = ExtResource("5_camera")
 
 [node name="Title" type="Label" parent="." unique_id=1582553990]
-offset_left = 1456.0
-offset_top = 1664.0
-offset_right = 1776.0
-offset_bottom = 1696.0
+offset_left = 624.0
+offset_top = 544.0
+offset_right = 944.0
+offset_bottom = 576.0
 theme_override_colors/font_color = Color(0.16, 0.12, 0.08, 1)
-text = "双人 20×20 公平领地测试"
+text = "联机玩家 20×20 公平领地"
 horizontal_alignment = 1
