@@ -22,6 +22,79 @@ theme_override_colors/font_outline_color = Color(0.105882, 0.0666667, 0.0392157,
 theme_override_constants/outline_size = 3
 theme_override_font_sizes/font_size = 12
 horizontal_alignment = 1
+visible = false
+
+[node name="ConstructionBar" type="ProgressBar" parent="."]
+offset_left = -30.0
+offset_top = -55.0
+offset_right = 30.0
+offset_bottom = -47.0
+mouse_filter = 2
+show_percentage = false
+
+[node name="ConstructionLabel" type="Label" parent="."]
+offset_left = -42.0
+offset_top = -72.0
+offset_right = 42.0
+offset_bottom = -56.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.941176, 0.737255, 1)
+theme_override_colors/font_outline_color = Color(0.117647, 0.0705882, 0.0352941, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 10
+horizontal_alignment = 1
+
+[node name="CollectionBubble" type="Area2D" parent="."]
+position = Vector2(0, -44)
+z_index = 12
+collision_layer = 1
+collision_mask = 0
+input_pickable = false
+visible = false
+
+[node name="BubbleBackground" type="Polygon2D" parent="CollectionBubble"]
+polygon = PackedVector2Array(-20, -12, 20, -12, 20, 10, 5, 10, 0, 16, -5, 10, -20, 10)
+color = Color(0.12, 0.2, 0.17, 0.94)
+
+[node name="Icon" type="Sprite2D" parent="CollectionBubble"]
+position = Vector2(-7, -1)
+texture_filter = 2
+
+[node name="ResourceGlyph" type="Label" parent="CollectionBubble"]
+offset_left = -16.0
+offset_top = -9.0
+offset_right = 1.0
+offset_bottom = 9.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.835294, 0.345098, 1)
+theme_override_colors/font_outline_color = Color(0.08, 0.05, 0.03, 1)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 11
+horizontal_alignment = 1
+
+[node name="Amount" type="Label" parent="CollectionBubble"]
+offset_left = 1.0
+offset_top = -8.0
+offset_right = 21.0
+offset_bottom = 9.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.95, 0.72, 1)
+theme_override_colors/font_outline_color = Color(0.08, 0.05, 0.03, 1)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 10
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CollectionBubble"]
+shape = SubResource("RectangleShape2D_building")
+scale = Vector2(0.7, 0.35)
+
+[node name="InteractionArea" type="Area2D" parent="."]
+collision_layer = 1
+collision_mask = 0
+input_pickable = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="InteractionArea"]
+position = Vector2(0, 8)
+shape = SubResource("RectangleShape2D_building")
 
 [node name="ObstacleBody" type="StaticBody2D" parent="."]
 collision_layer = 2

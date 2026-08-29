@@ -6,8 +6,12 @@ var _drag_start: Vector2 = Vector2.ZERO
 var _drag_end: Vector2 = Vector2.ZERO
 var _marker_position: Vector2 = Vector2.ZERO
 var _marker_time: float = 0.0
+var _attack_target: Node2D
+var _attack_target_radius: float = 18.0
+var _attack_pulse_time: float = 0.0
 var _build_preview_rect: Rect2 = Rect2()
 var _build_preview_visible: bool = false
+var _build_preview_valid: bool = true
 
 func _ready() -> void:
 	z_index = 900
@@ -35,9 +39,23 @@ func show_move_marker(world_position: Vector2) -> void:
 	set_process(true)
 	queue_redraw()
 
-func show_build_preview(cell_rect: Rect2i, tile_size: int) -> void:
+func show_attack_target(target: Node2D, radius: float) -> void:
+	_attack_target = target
+	_attack_target_radius = maxf(18.0, radius)
+	_attack_pulse_time = 0.0
+	set_process(true)
+	queue_redraw()
+
+func clear_attack_target() -> void:
+	_attack_target = null
+	queue_redraw()
+	if _marker_time <= 0.0:
+		set_process(false)
+
+func show_build_preview(cell_rect: Rect2i, tile_size: int, is_valid: bool = true) -> void:
 	_build_preview_rect = Rect2(Vector2(cell_rect.position * tile_size), Vector2(cell_rect.size * tile_size))
 	_build_preview_visible = true
+	_build_preview_valid = is_valid
 	queue_redraw()
 
 func hide_build_preview() -> void:
@@ -46,17 +64,21 @@ func hide_build_preview() -> void:
 
 func _process(delta: float) -> void:
 	_marker_time = maxf(0.0, _marker_time - delta)
+	_attack_pulse_time += delta
+	if not is_instance_valid(_attack_target):
+		_attack_target = null
 	queue_redraw()
-	if _marker_time <= 0.0:
+	if _marker_time <= 0.0 and _attack_target == null:
 		set_process(false)
 
 func _draw() -> void:
 	if _build_preview_visible:
-		draw_rect(_build_preview_rect, Color("#ffd16624"), true)
-		draw_rect(_build_preview_rect, Color("#ffd166"), false, 4.0)
+		var preview_color: Color = Color("#62dc78") if _build_preview_valid else Color("#ff5f62")
+		draw_rect(_build_preview_rect, Color(preview_color, 0.18), true)
+		draw_rect(_build_preview_rect, preview_color, false, 4.0)
 		var center: Vector2 = _build_preview_rect.get_center()
-		draw_line(Vector2(_build_preview_rect.position.x, center.y), Vector2(_build_preview_rect.end.x, center.y), Color("#ffd16688"), 2.0)
-		draw_line(Vector2(center.x, _build_preview_rect.position.y), Vector2(center.x, _build_preview_rect.end.y), Color("#ffd16688"), 2.0)
+		draw_line(Vector2(_build_preview_rect.position.x, center.y), Vector2(_build_preview_rect.end.x, center.y), Color(preview_color, 0.55), 2.0)
+		draw_line(Vector2(center.x, _build_preview_rect.position.y), Vector2(center.x, _build_preview_rect.end.y), Color(preview_color, 0.55), 2.0)
 	if _dragging:
 		var drag_rect: Rect2 = Rect2(_drag_start, _drag_end - _drag_start).abs()
 		draw_rect(drag_rect, Color("#d95d5050"), true)
@@ -66,3 +88,10 @@ func _draw() -> void:
 		var radius: float = lerpf(7.0, 19.0, progress)
 		var alpha: float = 1.0 - progress
 		draw_circle(_marker_position, radius, Color(0.9, 0.25, 0.18, alpha), false, 2.0)
+	if is_instance_valid(_attack_target):
+		var target_position: Vector2 = to_local(_attack_target.global_position)
+		var pulse: float = sin(_attack_pulse_time * 6.0) * 2.0
+		var radius: float = _attack_target_radius + pulse
+		draw_circle(target_position, radius, Color("#ffca5cdd"), false, 3.0, true)
+		draw_arc(target_position, radius + 6.0, -0.85, 0.15, 10, Color("#ff684fcc"), 3.0, true)
+		draw_arc(target_position, radius + 6.0, PI - 0.85, PI + 0.15, 10, Color("#ff684fcc"), 3.0, true)

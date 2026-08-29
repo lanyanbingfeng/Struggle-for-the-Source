@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="HeroSkillDefinition" load_steps=3 format=3]
+[ext_resource type="Script" path="res://game/data/hero_skill_definition.gd" id="1"]
+[ext_resource type="Texture2D" path="res://art/ui/skills/confucius_e_travel_icon.png" id="2_icon"]
+[resource]
+script = ExtResource("1")
+skill_id = &"zhou_you_lie_guo"
+display_name = "周游列国"
+hotkey = "E"
+target_mode = 2
+icon = ExtResource("2_icon")
+cast_range_tiles = 7.0
+radius_tiles = 3.5
+mana_cost = 45
+cooldown_seconds = 12.0
+effect_duration_seconds = 6.0
+values = PackedFloat32Array(15, 20, 25, 30, 35)
+description = "以2倍速度赶往7格内目标；抵达后使3.5格内友军攻击与移动速度提升15%/20%/25%/30%/35%，持续6秒；消耗45魔法，冷却12秒。"

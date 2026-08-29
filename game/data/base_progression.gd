@@ -21,14 +21,14 @@ const SUMMON_PROBABILITIES: Array = [
 # 索引为当前等级；第 0 项占位，第 1 项是 1→2 的费用。
 const UPGRADE_COSTS: Array[Dictionary] = [
 	{},
-	{"gold": 100, "wood": 10, "stone": 5, "iron": 0, "gold_ore": 0, "diamond": 0},
-	{"gold": 200, "wood": 12, "stone": 7, "iron": 0, "gold_ore": 0, "diamond": 0},
-	{"gold": 350, "wood": 14, "stone": 8, "iron": 2, "gold_ore": 0, "diamond": 0},
-	{"gold": 550, "wood": 14, "stone": 8, "iron": 3, "gold_ore": 1, "diamond": 0},
-	{"gold": 800, "wood": 14, "stone": 8, "iron": 4, "gold_ore": 1, "diamond": 0},
-	{"gold": 1200, "wood": 14, "stone": 8, "iron": 5, "gold_ore": 2, "diamond": 0},
-	{"gold": 1700, "wood": 12, "stone": 8, "iron": 6, "gold_ore": 2, "diamond": 0},
-	{"gold": 2400, "wood": 10, "stone": 8, "iron": 8, "gold_ore": 3, "diamond": 1},
+	{"gold": 100, "wood": 10, "stone": 5, "iron": 0},
+	{"gold": 200, "wood": 12, "stone": 7, "iron": 0},
+	{"gold": 350, "wood": 14, "stone": 8, "iron": 2},
+	{"gold": 550, "wood": 14, "stone": 8, "iron": 4},
+	{"gold": 800, "wood": 14, "stone": 8, "iron": 6},
+	{"gold": 1200, "wood": 14, "stone": 8, "iron": 8},
+	{"gold": 1700, "wood": 12, "stone": 8, "iron": 10},
+	{"gold": 2400, "wood": 10, "stone": 8, "iron": 14},
 ]
 
 static func get_probabilities(level: int) -> PackedInt32Array:
@@ -51,9 +51,9 @@ static func upgrade_cost_summary(current_level: int) -> String:
 	if current_level >= MAX_LEVEL:
 		return "基地已达到最高等级"
 	var cost: Dictionary = get_upgrade_cost(current_level)
-	return "金币%d  木材%d  石头%d  铁%d  金矿%d  钻石%d" % [
+	return "金币%d  木材%d  石头%d  铁%d" % [
 		int(cost.get("gold", 0)), int(cost.get("wood", 0)), int(cost.get("stone", 0)),
-		int(cost.get("iron", 0)), int(cost.get("gold_ore", 0)), int(cost.get("diamond", 0)),
+		int(cost.get("iron", 0)),
 	]
 
 static func roll_rarity(level: int, rng: RandomNumberGenerator) -> UnitDefinition.Rarity:

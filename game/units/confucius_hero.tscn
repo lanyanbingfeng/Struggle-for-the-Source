@@ -1,0 +1,28 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://game/units/hero_unit.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://art/units/confucius_card.png" id="2_texture"]
+
+[sub_resource type="CircleShape2D" id="CircleShape_hero"]
+radius = 10.0
+
+[node name="ConfuciusHero" type="CharacterBody2D"]
+collision_layer = 1
+collision_mask = 2
+motion_mode = 1
+script = ExtResource("1_script")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture = ExtResource("2_texture")
+texture_filter = 2
+scale = Vector2(0.0195, 0.0195)
+
+[node name="AttackVfx" type="AnimatedSprite2D" parent="."]
+visible = false
+
+[node name="SkillVfx" type="AnimatedSprite2D" parent="."]
+visible = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, 7)
+shape = SubResource("CircleShape_hero")

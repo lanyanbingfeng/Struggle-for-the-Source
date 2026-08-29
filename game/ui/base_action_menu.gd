@@ -119,7 +119,7 @@ func _show_main_actions() -> void:
 			"text": "召唤",
 			"action": &"summon",
 			"disabled": false,
-			"tooltip": "消耗10金币召唤一次\n费用支付后不可退还",
+			"tooltip": "建造英雄台后选择并召唤英雄",
 		},
 		{"id": &"upgrade", "text": "升级", "action": &"upgrade", "disabled": false},
 	]

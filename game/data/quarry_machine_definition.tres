@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://game/data/unit_definition.gd" id="1_script"]
 [ext_resource type="PackedScene" path="res://game/units/quarry_machine.tscn" id="2_scene"]
-[ext_resource type="Texture2D" path="res://art/resources/resource_quarry_machine_1x1.png" id="3_texture"]
+[ext_resource type="Texture2D" path="res://art/ui/cards/card_quarry_machine_art.png" id="3_texture"]
 
 [resource]
 script = ExtResource("1_script")
@@ -12,7 +12,7 @@ category = 0
 scene = ExtResource("2_scene")
 card_texture = ExtResource("3_texture")
 role_name = "矿物采集"
-description = "自动寻找领地内的矿物；升级后依次解锁铁矿、金矿与钻石。"
+description = "自动寻找领地内的石头和铁；升至Lv.3后可开启宝箱。"
 recruit_cost_gold = 100
 max_health = 170
 attack = 0

@@ -3,6 +3,9 @@ extends Camera2D
 
 @export_range(0.05, 0.25, 0.01) var edge_margin_ratio: float = 0.12
 @export var scroll_speed: float = 600.0
+@export_range(0.1, 1.0, 0.05) var minimum_zoom: float = 0.35
+@export_range(1.0, 4.0, 0.05) var maximum_zoom: float = 1.5
+@export_range(1.01, 1.5, 0.01) var zoom_step: float = 1.1
 @export var map_size: Vector2 = Vector2(3200.0, 3200.0)
 
 func _ready() -> void:
@@ -26,6 +29,33 @@ func _process(delta: float) -> void:
 
 	var movement: Vector2 = edge_strength * scroll_speed * delta
 	position = _clamped_position(position + movement)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not enabled or not is_processing() or _is_pointer_over_ui():
+		return
+	if not event is InputEventMouseButton:
+		return
+
+	var mouse_event: InputEventMouseButton = event
+	if not mouse_event.pressed:
+		return
+	if mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		_zoom_at_pointer(zoom_step)
+	elif mouse_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		_zoom_at_pointer(1.0 / zoom_step)
+	else:
+		return
+	get_viewport().set_input_as_handled()
+
+func _zoom_at_pointer(factor: float) -> void:
+	var world_position_before_zoom: Vector2 = get_global_mouse_position()
+	var target_zoom_value: float = clampf(zoom.x * factor, minimum_zoom, maximum_zoom)
+	if is_equal_approx(target_zoom_value, zoom.x):
+		return
+
+	zoom = Vector2.ONE * target_zoom_value
+	var world_position_after_zoom: Vector2 = get_global_mouse_position()
+	position = _clamped_position(position + world_position_before_zoom - world_position_after_zoom)
 
 func _get_edge_strength(mouse_position: Vector2, viewport_size: Vector2, edge_size: Vector2) -> Vector2:
 	var strength: Vector2 = Vector2.ZERO

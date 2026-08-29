@@ -6,7 +6,7 @@ signal unit_selected(unit_id: StringName)
 const CARD_SIZE: Vector2 = Vector2(104.0, 136.0)
 const CARD_GAP: float = 8.0
 const CARD_WORLD_GAP: float = 20.0
-const DETAIL_SIZE: Vector2 = Vector2(292.0, 204.0)
+const DETAIL_SIZE: Vector2 = Vector2(260.0, 188.0)
 const DETAIL_GAP: float = 8.0
 
 var _root: Control
@@ -17,6 +17,7 @@ var _detail_title: Label
 var _detail_role: Label
 var _detail_stats: Label
 var _detail_secondary: Label
+var _detail_skill: Label
 var _detail_description: Label
 var _follow_target: Node2D
 var _hovered_card: Button
@@ -86,26 +87,29 @@ func _build_ui() -> void:
 	_root.add_child(_detail_panel)
 
 	var margin: MarginContainer = MarginContainer.new()
-	margin.add_theme_constant_override(&"margin_left", 12)
-	margin.add_theme_constant_override(&"margin_top", 10)
-	margin.add_theme_constant_override(&"margin_right", 12)
-	margin.add_theme_constant_override(&"margin_bottom", 10)
+	margin.add_theme_constant_override(&"margin_left", 9)
+	margin.add_theme_constant_override(&"margin_top", 7)
+	margin.add_theme_constant_override(&"margin_right", 9)
+	margin.add_theme_constant_override(&"margin_bottom", 7)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_detail_panel.add_child(margin)
 
 	var details: VBoxContainer = VBoxContainer.new()
-	details.add_theme_constant_override(&"separation", 3)
+	details.add_theme_constant_override(&"separation", 1)
 	details.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(details)
 
-	_detail_title = _create_detail_label(16, Color("#ffe29a"))
-	_detail_role = _create_detail_label(12, Color("#a8d97b"))
-	_detail_stats = _create_detail_label(12, Color("#fff2c8"))
-	_detail_secondary = _create_detail_label(11, Color("#c3d6c9"))
-	_detail_description = _create_detail_label(11, Color("#e8e0c8"))
+	_detail_title = _create_detail_label(14, Color("#ffe29a"))
+	_detail_role = _create_detail_label(10, Color("#a8d97b"))
+	_detail_stats = _create_detail_label(10, Color("#fff2c8"))
+	_detail_secondary = _create_detail_label(9, Color("#c3d6c9"))
+	_detail_skill = _create_detail_label(9, Color("#9fe6ff"))
+	_detail_skill.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_detail_skill.custom_minimum_size = Vector2(242.0, 0.0)
+	_detail_description = _create_detail_label(9, Color("#e8e0c8"))
 	_detail_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_detail_description.custom_minimum_size = Vector2(264.0, 64.0)
-	var detail_labels: Array[Label] = [_detail_title, _detail_role, _detail_stats, _detail_secondary, _detail_description]
+	_detail_description.custom_minimum_size = Vector2(242.0, 0.0)
+	var detail_labels: Array[Label] = [_detail_title, _detail_role, _detail_stats, _detail_secondary, _detail_skill, _detail_description]
 	for label: Label in detail_labels:
 		details.add_child(label)
 	_detail_panel.hide()
@@ -122,6 +126,7 @@ func _create_card(definition: UnitDefinition) -> Button:
 	var rarity_color: Color = _rarity_color(definition.rarity)
 	button.custom_minimum_size = CARD_SIZE
 	button.size = CARD_SIZE
+	button.set_meta(&"unit_id", definition.unit_id)
 	button.clip_contents = true
 	button.focus_mode = Control.FOCUS_ALL
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -215,6 +220,7 @@ func _on_card_mouse_entered(button: Button, definition: UnitDefinition) -> void:
 	]
 	if definition.recruit_cost_gold > 0:
 		_detail_secondary.text += "    招募%d金币" % definition.recruit_cost_gold
+	_detail_skill.text = "技能：无" if definition.skill_name.is_empty() else "技能：%s｜%s" % [definition.skill_name, definition.skill_description]
 	_detail_description.text = definition.description
 	_detail_panel.show()
 	_reposition_detail_panel(button)

@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="HeroDefinition" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://game/data/hero_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://game/units/confucius_hero.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://game/data/confucius_passive.tres" id="3_passive"]
+[ext_resource type="Resource" path="res://game/data/confucius_q.tres" id="4_q"]
+[ext_resource type="Resource" path="res://game/data/confucius_w.tres" id="5_w"]
+[ext_resource type="Resource" path="res://game/data/confucius_e.tres" id="6_e"]
+[ext_resource type="Texture2D" path="res://art/units/confucius_card.png" id="7_card"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = &"confucius"
+display_name = "孔夫子"
+category = 2
+rarity = 4
+scene = ExtResource("2_scene")
+role_name = "辅助控制"
+description = "以仁、礼、教化与周游之道支援战场。"
+card_texture = ExtResource("7_card")
+passive_skill = ExtResource("3_passive")
+active_skills = [ExtResource("4_q"), ExtResource("5_w"), ExtResource("6_e")]
+max_health = 320
+attack = 24
+defense = 24
+attack_interval_seconds = 1.4
+attack_range_tiles = 3.5
+chase_range_tiles = 6.0
+evasion_chance = 0.0
+vision_radius_tiles = 8.0
+movement_speed = 100.0
+max_mana = 120
+mana_regen_per_second = 6.0
+footprint_tiles = 1
+formation_spacing = 40.0

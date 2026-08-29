@@ -7,14 +7,14 @@ const UPGRADE_COSTS: Array[Dictionary] = [
 	{},
 	{"gold": 150, "wood": 20, "stone": 25},
 	{"gold": 300, "wood": 35, "iron": 18},
-	{"gold": 600, "wood": 50, "gold_ore": 12},
+	{"gold": 600, "wood": 50, "iron": 30},
 ]
 const RESOURCE_NAMES: Dictionary = {
 	"gold": "金币", "wood": "木材", "stone": "石头",
-	"iron": "铁矿", "gold_ore": "金矿", "diamond": "钻石",
+	"iron": "铁",
 }
 const QUARRY_LEVEL_BY_RESOURCE: Dictionary = {
-	&"stone": 1, &"iron": 2, &"gold_ore": 3, &"diamond": 4,
+	&"stone": 1, &"iron": 2, &"chest": 3,
 }
 
 static func get_speed_multiplier(level: int) -> float:
@@ -30,7 +30,7 @@ static func cost_summary(current_level: int) -> String:
 	if cost.is_empty():
 		return "已满级"
 	var parts: PackedStringArray = PackedStringArray()
-	for resource_id: String in ["gold", "wood", "stone", "iron", "gold_ore", "diamond"]:
+	for resource_id: String in ["gold", "wood", "stone", "iron"]:
 		if cost.has(resource_id):
 			parts.append("%s%d" % [str(RESOURCE_NAMES.get(resource_id, resource_id)), int(cost[resource_id])])
 	return " + ".join(parts)
@@ -42,5 +42,4 @@ static func quarry_permission_text(level: int) -> String:
 	match clampi(level, 1, MAX_LEVEL):
 		1: return "可采：石头"
 		2: return "可采：石头、铁矿"
-		3: return "可采：石头、铁矿、金矿"
-		_: return "可采：石头、铁矿、金矿、钻石"
+		_: return "可采：石头、铁、宝箱"

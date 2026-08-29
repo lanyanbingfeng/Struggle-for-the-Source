@@ -1,0 +1,22 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://game/world/wild_monster.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://art/units/unit_wild_beetle_imagegen_2x2.png" id="2_texture"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_monster"]
+size = Vector2(54, 46)
+
+[node name="WildMonster" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture_filter = 1
+texture = ExtResource("2_texture")
+
+[node name="ObstacleBody" type="StaticBody2D" parent="."]
+collision_layer = 2
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ObstacleBody"]
+position = Vector2(0, 4)
+shape = SubResource("RectangleShape2D_monster")

@@ -3,9 +3,11 @@ extends CanvasLayer
 
 signal full_vision_changed(enabled: bool)
 signal ai_paused_changed(paused: bool)
+signal infinite_resources_changed(enabled: bool)
 
 var _toggle: CheckButton
 var _ai_toggle: CheckButton
+var _resources_toggle: CheckButton
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -15,8 +17,8 @@ func _ready() -> void:
 	panel.offset_left = -178.0
 	panel.offset_top = 12.0
 	panel.offset_right = -12.0
-	panel.offset_bottom = 88.0
-	panel.custom_minimum_size = Vector2(184.0, 76.0)
+	panel.offset_bottom = 112.0
+	panel.custom_minimum_size = Vector2(184.0, 100.0)
 	panel.add_theme_stylebox_override("panel", _make_panel_style())
 	add_child(panel)
 	var margin: MarginContainer = MarginContainer.new()
@@ -38,19 +40,29 @@ func _ready() -> void:
 	_ai_toggle.add_theme_font_size_override(&"font_size", 11)
 	_ai_toggle.toggled.connect(_on_ai_toggled)
 	column.add_child(_ai_toggle)
+	_resources_toggle = CheckButton.new()
+	_resources_toggle.text = "开发者：无限资源"
+	_resources_toggle.add_theme_font_size_override(&"font_size", 11)
+	_resources_toggle.toggled.connect(_on_resources_toggled)
+	column.add_child(_resources_toggle)
 	hide()
 
 func reset() -> void:
 	_toggle.set_pressed_no_signal(false)
 	_ai_toggle.set_pressed_no_signal(false)
+	_resources_toggle.set_pressed_no_signal(false)
 	full_vision_changed.emit(false)
 	ai_paused_changed.emit(false)
+	infinite_resources_changed.emit(false)
 
 func _on_toggled(enabled: bool) -> void:
 	full_vision_changed.emit(enabled)
 
 func _on_ai_toggled(paused: bool) -> void:
 	ai_paused_changed.emit(paused)
+
+func _on_resources_toggled(enabled: bool) -> void:
+	infinite_resources_changed.emit(enabled)
 
 func _make_panel_style() -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()

@@ -1,8 +1,14 @@
 extends CanvasLayer
 
 const PANEL_POSITION: Vector2 = Vector2(10.0, 10.0)
-const PANEL_SIZE: Vector2 = Vector2(466.0, 44.0)
-const CARD_SIZE: Vector2 = Vector2(69.0, 30.0)
+const PANEL_SIZE: Vector2 = Vector2(566.0, 44.0)
+const CARD_SIZE: Vector2 = Vector2(76.0, 30.0)
+const RESOURCE_ICONS: Dictionary = {
+	&"gold": preload("res://art/ui/resource_icons/resource_gold.png"),
+	&"wood": preload("res://art/ui/resource_icons/resource_wood.png"),
+	&"stone": preload("res://art/ui/resource_icons/resource_stone.png"),
+	&"iron": preload("res://art/ui/resource_icons/resource_iron.png"),
+}
 
 var _resource_manager: Node
 var _value_labels: Dictionary = {}
@@ -19,8 +25,9 @@ func bind(resource_manager: Node) -> void:
 		int(_resource_manager.get("wood")),
 		int(_resource_manager.get("stone")),
 		int(_resource_manager.get("iron")),
-		int(_resource_manager.get("gold_ore")),
-		int(_resource_manager.get("diamond"))
+		int(_resource_manager.get("summon_token")),
+		int(_resource_manager.get("skill_experience")),
+		int(_resource_manager.get("experience"))
 	)
 
 func _build_ui() -> void:
@@ -47,9 +54,10 @@ func _build_ui() -> void:
 	_add_resource_card(resource_row, &"gold", "金币", Color("#f2c14e"))
 	_add_resource_card(resource_row, &"wood", "木材", Color("#b9753b"))
 	_add_resource_card(resource_row, &"stone", "石头", Color("#9aa6ad"))
-	_add_resource_card(resource_row, &"iron", "铁矿", Color("#7da7c2"))
-	_add_resource_card(resource_row, &"gold_ore", "金矿", Color("#e5a93d"))
-	_add_resource_card(resource_row, &"diamond", "钻石", Color("#72e7ee"))
+	_add_resource_card(resource_row, &"iron", "铁", Color("#7da7c2"))
+	_add_resource_card(resource_row, &"summon_token", "召唤符", Color("#e5a93d"))
+	_add_resource_card(resource_row, &"skill_experience", "技能经验", Color("#72e7ee"))
+	_add_resource_card(resource_row, &"experience", "经验", Color("#a8d97b"))
 
 func _add_resource_card(
 	parent: HBoxContainer,
@@ -68,11 +76,22 @@ func _add_resource_card(
 	card_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(card_row)
 
-	var accent: ColorRect = ColorRect.new()
-	accent.custom_minimum_size = Vector2(5.0, 20.0)
-	accent.color = accent_color
-	accent.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card_row.add_child(accent)
+	var icon_texture: Texture2D = RESOURCE_ICONS.get(resource_id) as Texture2D
+	if icon_texture != null:
+		var icon := TextureRect.new()
+		icon.texture = icon_texture
+		icon.custom_minimum_size = Vector2(20.0, 20.0)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_row.add_child(icon)
+	else:
+		var accent := ColorRect.new()
+		accent.custom_minimum_size = Vector2(5.0, 20.0)
+		accent.color = accent_color
+		accent.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_row.add_child(accent)
 
 	var text_column: VBoxContainer = VBoxContainer.new()
 	text_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -113,13 +132,14 @@ func _make_card_style() -> StyleBoxFlat:
 	style.content_margin_bottom = 2.0
 	return style
 
-func _on_resources_changed(new_gold: int, new_wood: int, new_stone: int, new_iron: int, new_gold_ore: int, new_diamond: int) -> void:
+func _on_resources_changed(new_gold: int, new_wood: int, new_stone: int, new_iron: int, new_summon_token: int, new_skill_experience: int, new_experience: int) -> void:
 	_set_value(&"gold", new_gold)
 	_set_value(&"wood", new_wood)
 	_set_value(&"stone", new_stone)
 	_set_value(&"iron", new_iron)
-	_set_value(&"gold_ore", new_gold_ore)
-	_set_value(&"diamond", new_diamond)
+	_set_value(&"summon_token", new_summon_token)
+	_set_value(&"skill_experience", new_skill_experience)
+	_set_value(&"experience", new_experience)
 
 func _set_value(resource_id: StringName, amount: int) -> void:
 	var value_label: Label = _value_labels.get(resource_id) as Label

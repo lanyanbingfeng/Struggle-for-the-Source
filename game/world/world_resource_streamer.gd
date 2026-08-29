@@ -76,8 +76,21 @@ func claim_resources_in_rect(rect: Rect2i) -> Array[Dictionary]:
 		_remove_resource_data(resource_id)
 	return claimed_data
 
+func claim_resource_by_id(resource_id: int, expected_type: StringName = &"") -> Dictionary:
+	var data: Dictionary = (_resource_data_by_id.get(resource_id, {}) as Dictionary).duplicate(true)
+	if data.is_empty():
+		return {}
+	var resource_type: StringName = data.get("resource_type", &"tree") as StringName
+	if not expected_type.is_empty() and resource_type != expected_type:
+		return {}
+	_remove_resource_data(resource_id)
+	return data
+
+func get_resource_data(resource_id: int) -> Dictionary:
+	return (_resource_data_by_id.get(resource_id, {}) as Dictionary).duplicate(true)
+
 func count_resources_in_rect(rect: Rect2i) -> Dictionary:
-	var counts: Dictionary = {&"tree": 0, &"stone": 0, &"iron": 0, &"gold_ore": 0, &"diamond": 0}
+	var counts: Dictionary = {&"tree": 0, &"stone": 0, &"iron": 0, &"chest": 0}
 	for resource_id: int in _resource_ids_in_rect(rect):
 		var data: Dictionary = _resource_data_by_id.get(resource_id, {}) as Dictionary
 		var resource_type: StringName = data.get("resource_type", &"tree") as StringName
@@ -85,7 +98,7 @@ func count_resources_in_rect(rect: Rect2i) -> Dictionary:
 	return counts
 
 func get_total_counts() -> Dictionary:
-	var counts: Dictionary = {&"tree": 0, &"stone": 0, &"iron": 0, &"gold_ore": 0, &"diamond": 0}
+	var counts: Dictionary = {&"tree": 0, &"stone": 0, &"iron": 0, &"chest": 0}
 	for data: Dictionary in _resource_data_by_id.values():
 		var resource_type: StringName = data.get("resource_type", &"tree") as StringName
 		counts[resource_type] = int(counts.get(resource_type, 0)) + 1
@@ -100,11 +113,21 @@ func get_active_chunk_count() -> int:
 func get_total_resource_count() -> int:
 	return _resource_data_by_id.size()
 
+func get_navigation_obstacle_cells() -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	for data: Dictionary in _resource_data_by_id.values():
+		var cell: Vector2i = data.get("cell", Vector2i.ZERO) as Vector2i
+		var resource_type: StringName = data.get("resource_type", &"tree") as StringName
+		cells.append(cell)
+		if resource_type == &"tree":
+			cells.append(cell + Vector2i.UP)
+	return cells
+
 func get_layout_metrics() -> Dictionary:
-	var grouped_counts: Dictionary = {&"tree": 0, &"iron": 0, &"gold_ore": 0, &"diamond": 0}
-	var total_counts: Dictionary = {&"tree": 0, &"iron": 0, &"gold_ore": 0, &"diamond": 0}
+	var grouped_counts: Dictionary = {&"tree": 0, &"iron": 0, &"chest": 0}
+	var total_counts: Dictionary = {&"tree": 0, &"iron": 0, &"chest": 0}
 	for resource_ids_value: Variant in _resource_ids_by_chunk.values():
-		var cells_by_type: Dictionary = {&"tree": [], &"iron": [], &"gold_ore": [], &"diamond": []}
+		var cells_by_type: Dictionary = {&"tree": [], &"iron": [], &"chest": []}
 		for resource_id_value: Variant in (resource_ids_value as Array):
 			var data: Dictionary = _resource_data_by_id.get(int(resource_id_value), {}) as Dictionary
 			var resource_type: StringName = data.get("resource_type", &"stone") as StringName
@@ -165,12 +188,9 @@ func _generate_chunk(chunk: Vector2i, abundance: int, rng: RandomNumberGenerator
 	var iron_clusters: int = _probability_cluster_count(rng, abundance, 0.55, 0.90, 1.0, 0.58)
 	for _cluster_index: int in iron_clusters:
 		_add_cluster(&"iron", _random_cell_in_rect(chunk_rect, rng, 4), rng.randi_range(5, 8), 3, chunk_rect, rng)
-	var gold_clusters: int = _probability_cluster_count(rng, abundance, 0.24, 0.48, 0.82, 0.32)
-	for _cluster_index: int in gold_clusters:
-		_add_cluster(&"gold_ore", _random_cell_in_rect(chunk_rect, rng, 4), rng.randi_range(3, 5), 2, chunk_rect, rng)
-	var diamond_clusters: int = _probability_cluster_count(rng, abundance, 0.07, 0.16, 0.34, 0.0)
-	for _cluster_index: int in diamond_clusters:
-		_add_cluster(&"diamond", _random_cell_in_rect(chunk_rect, rng, 4), rng.randi_range(2, 3), 2, chunk_rect, rng)
+	var chest_count: int = _probability_cluster_count(rng, abundance, 0.12, 0.26, 0.48, 0.08)
+	for _chest_index: int in chest_count:
+		_try_store_resource(&"chest", _random_cell_in_rect(chunk_rect, rng, 3))
 
 func _probability_cluster_count(rng: RandomNumberGenerator, abundance: int, scarce_chance: float, standard_chance: float, rich_chance: float, rich_second_chance: float) -> int:
 	var chance: float = standard_chance
@@ -312,5 +332,4 @@ func _resource_texture(resource_type: StringName) -> Texture2D:
 		&"tree": return load("res://art/resources/resource_tree_oak_1x2.png")
 		&"stone": return load("res://art/resources/resource_stone_1x1.png")
 		&"iron": return load("res://art/resources/resource_iron_deposit_1x1.png")
-		&"gold_ore": return load("res://art/resources/resource_gold_deposit_1x1.png")
-		_: return load("res://art/resources/resource_diamond_deposit_1x1.png")
+		_: return load("res://art/resources/resource_treasure_chest_imagegen_1x1.png")

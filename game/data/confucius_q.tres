@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HeroSkillDefinition" load_steps=3 format=3]
+[ext_resource type="Script" path="res://game/data/hero_skill_definition.gd" id="1"]
+[ext_resource type="Texture2D" path="res://art/ui/skills/confucius_q_benevolence_icon.png" id="2_icon"]
+[resource]
+script = ExtResource("1")
+skill_id = &"ren_zhe_ai_ren"
+display_name = "仁者爱人"
+hotkey = "Q"
+target_mode = 1
+icon = ExtResource("2_icon")
+cast_range_tiles = 5.0
+mana_cost = 35
+cooldown_seconds = 8.0
+values = PackedFloat32Array(12, 14, 16, 18, 20)
+description = "治疗自己或5格内一名友军12%/14%/16%/18%/20%最大生命；消耗35魔法，冷却8秒。"

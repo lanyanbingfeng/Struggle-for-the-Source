@@ -22,7 +22,9 @@ var simulation_enabled: bool = true
 var machine_level: int = 1
 var work_enabled: bool = true
 var _mineable_container: Node2D
+var _path_provider: Callable
 var _target_stone: Node2D
+var _target_work_position: Vector2 = Vector2.ZERO
 var _state: State = State.WAITING
 var _mine_elapsed: float = 0.0
 var _network_position: Vector2 = Vector2.ZERO
@@ -31,12 +33,19 @@ var _navigation_path: PackedVector2Array = PackedVector2Array()
 var _navigation_index: int = 0
 var _selected: bool = false
 
-func setup(mineable_container: Node2D, new_territory_id: int = 0, should_simulate: bool = true) -> void:
+func setup(
+	mineable_container: Node2D,
+	new_territory_id: int = 0,
+	should_simulate: bool = true,
+	path_provider: Callable = Callable()
+) -> void:
 	_mineable_container = mineable_container
+	_path_provider = path_provider
 	territory_id = new_territory_id
 	simulation_enabled = should_simulate
 	_network_position = global_position
 	_target_stone = null
+	_target_work_position = Vector2.ZERO
 	_mine_elapsed = 0.0
 	_set_state(State.SEARCHING if simulation_enabled and work_enabled else State.WAITING)
 
@@ -54,6 +63,7 @@ func apply_network_state(network_position: Vector2, working: bool, enabled: bool
 func set_work_enabled(enabled: bool) -> void:
 	work_enabled = enabled
 	_target_stone = null
+	_target_work_position = Vector2.ZERO
 	_mine_elapsed = 0.0
 	_navigation_path.clear()
 	_navigation_index = 0
@@ -92,25 +102,25 @@ func _physics_process(delta: float) -> void:
 		_set_state(State.WAITING)
 		return
 	if not _is_valid_mineable(_target_stone):
-		_target_stone = _find_nearest_mineable()
+		_select_nearest_mineable()
 		_mine_elapsed = 0.0
 	if _target_stone == null:
 		_set_state(State.WAITING)
 		return
 	_update_facing_to_target()
-	var work_position: Vector2 = _get_work_position(_target_stone)
-	if global_position.distance_to(work_position) > HARVEST_DISTANCE:
+	if global_position.distance_to(_target_work_position) > HARVEST_DISTANCE:
 		_set_state(State.MOVING)
-		global_position = global_position.move_toward(work_position, MOVE_SPEED * MachineProgressionData.get_speed_multiplier(machine_level) * delta)
+		if not _follow_navigation_path(delta, MOVE_SPEED * MachineProgressionData.get_speed_multiplier(machine_level)):
+			_clear_harvest_target()
 		return
 	_set_state(State.MINING)
 	_mine_elapsed += delta * MachineProgressionData.get_speed_multiplier(machine_level)
 	if _mine_elapsed < MINE_INTERVAL:
 		return
 	_mine_elapsed -= MINE_INTERVAL
-	_target_stone.call(&"register_hit")
+	_consume_target_progress(_target_stone)
 	if not _is_valid_mineable(_target_stone):
-		_target_stone = null
+		_clear_harvest_target()
 
 func _process_manual_move(delta: float) -> void:
 	while _navigation_index < _navigation_path.size() and global_position.distance_to(_navigation_path[_navigation_index]) <= 3.0:
@@ -121,18 +131,25 @@ func _process_manual_move(delta: float) -> void:
 	_set_state(State.MANUAL_MOVING)
 	global_position = global_position.move_toward(_navigation_path[_navigation_index], MOVE_SPEED * delta)
 
-func _find_nearest_mineable() -> Node2D:
-	var nearest: Node2D
+func _select_nearest_mineable() -> void:
+	_clear_harvest_target()
 	var nearest_distance: float = INF
 	for child: Node in _get_mineable_nodes(_mineable_container):
 		var mineable: Node2D = child as Node2D
 		if not _is_valid_mineable(mineable) or int(mineable.get("territory_id")) != territory_id:
 			continue
-		var distance: float = global_position.distance_squared_to(_get_work_position(mineable))
-		if distance < nearest_distance:
+		for work_position: Vector2 in _get_work_positions(mineable):
+			var path: PackedVector2Array = _calculate_path(work_position)
+			if path.is_empty() or path[path.size() - 1].distance_to(work_position) > HARVEST_DISTANCE:
+				continue
+			var distance: float = _path_length(global_position, path)
+			if distance >= nearest_distance:
+				continue
 			nearest_distance = distance
-			nearest = mineable
-	return nearest
+			_target_stone = mineable
+			_target_work_position = work_position
+			_navigation_path = path
+			_navigation_index = 0
 
 func _get_mineable_nodes(root: Node) -> Array[Node]:
 	var nodes: Array[Node] = []
@@ -149,12 +166,53 @@ func _is_valid_mineable(mineable: Node2D) -> bool:
 	var resource_type: StringName = StringName(str(mineable.get("resource_type")))
 	return MachineProgressionData.quarry_can_harvest(machine_level, resource_type) and bool(mineable.call(&"can_be_targeted"))
 
-func _get_work_position(mineable: Node2D) -> Vector2:
+func _get_work_positions(mineable: Node2D) -> PackedVector2Array:
+	if mineable.has_method(&"get_harvest_positions"):
+		var positions_result: Variant = mineable.call(&"get_harvest_positions", global_position)
+		if positions_result is PackedVector2Array:
+			return positions_result as PackedVector2Array
 	if mineable.has_method(&"get_harvest_position"):
 		var result: Variant = mineable.call(&"get_harvest_position", global_position)
 		if result is Vector2:
-			return result
-	return mineable.global_position + STONE_WORK_OFFSET
+			return PackedVector2Array([result as Vector2])
+	return PackedVector2Array([mineable.global_position + STONE_WORK_OFFSET])
+
+func _calculate_path(work_position: Vector2) -> PackedVector2Array:
+	if not _path_provider.is_valid():
+		return PackedVector2Array([work_position])
+	var result: Variant = _path_provider.call(global_position, work_position)
+	return result as PackedVector2Array if result is PackedVector2Array else PackedVector2Array()
+
+func _path_length(start_position: Vector2, path: PackedVector2Array) -> float:
+	var length: float = 0.0
+	var previous: Vector2 = start_position
+	for waypoint: Vector2 in path:
+		length += previous.distance_to(waypoint)
+		previous = waypoint
+	return length
+
+func _follow_navigation_path(delta: float, speed: float) -> bool:
+	while _navigation_index < _navigation_path.size() and global_position.distance_to(_navigation_path[_navigation_index]) <= HARVEST_DISTANCE:
+		_navigation_index += 1
+	if _navigation_index >= _navigation_path.size():
+		return global_position.distance_to(_target_work_position) <= HARVEST_DISTANCE
+	global_position = global_position.move_toward(_navigation_path[_navigation_index], speed * delta)
+	return true
+
+func _consume_target_progress(mineable: Node2D) -> void:
+	if not mineable.has_method(&"consume_harvest_progress"):
+		mineable.call(&"register_hit")
+		return
+	var cost_percent: float = 100.0
+	if mineable.has_method(&"get_harvest_cycle_cost_percent"):
+		cost_percent = float(mineable.call(&"get_harvest_cycle_cost_percent"))
+	mineable.call(&"consume_harvest_progress", cost_percent)
+
+func _clear_harvest_target() -> void:
+	_target_stone = null
+	_target_work_position = Vector2.ZERO
+	_navigation_path.clear()
+	_navigation_index = 0
 
 func _update_facing_to_target() -> void:
 	if is_instance_valid(_target_stone) and absf(_target_stone.global_position.x - global_position.x) > 0.01:

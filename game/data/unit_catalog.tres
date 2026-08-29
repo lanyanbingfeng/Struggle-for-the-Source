@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="UnitCatalog" load_steps=13 format=3]
+[gd_resource type="Resource" script_class="UnitCatalog" load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://game/data/unit_catalog.gd" id="1_script"]
 [ext_resource type="Resource" path="res://game/data/lumber_machine_definition.tres" id="2_lumber"]
@@ -11,9 +11,11 @@
 [ext_resource type="Resource" path="res://game/data/explorer_definition.tres" id="9_explorer"]
 [ext_resource type="Resource" path="res://game/data/builder_definition.tres" id="10_builder"]
 [ext_resource type="Resource" path="res://game/data/swordsman_definition.tres" id="11_swordsman"]
+[ext_resource type="Resource" path="res://game/data/confucius_definition.tres" id="12_confucius"]
 
 [resource]
 script = ExtResource("1_script")
-definitions = Array[ExtResource("5_definition")]([ExtResource("2_lumber"), ExtResource("3_quarry"), ExtResource("9_explorer"), ExtResource("10_builder"), ExtResource("4_treant"), ExtResource("6_rare"), ExtResource("7_epic"), ExtResource("8_legendary"), ExtResource("11_swordsman")])
+definitions = Array[ExtResource("5_definition")]([ExtResource("2_lumber"), ExtResource("3_quarry"), ExtResource("9_explorer"), ExtResource("10_builder"), ExtResource("4_treant"), ExtResource("6_rare"), ExtResource("7_epic"), ExtResource("8_legendary"), ExtResource("11_swordsman"), ExtResource("12_confucius")])
 recruitment_pool = Array[ExtResource("5_definition")]([ExtResource("2_lumber"), ExtResource("3_quarry"), ExtResource("9_explorer"), ExtResource("10_builder")])
 summon_pool = Array[ExtResource("5_definition")]([ExtResource("4_treant"), ExtResource("6_rare"), ExtResource("7_epic"), ExtResource("8_legendary"), ExtResource("11_swordsman")])
+hero_pool = Array[ExtResource("5_definition")]([ExtResource("12_confucius")])

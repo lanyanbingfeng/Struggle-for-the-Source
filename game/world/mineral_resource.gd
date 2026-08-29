@@ -2,6 +2,7 @@ class_name MineralResource
 extends Node2D
 
 signal depleted(mineral: MineralResource)
+signal harvest_progress_changed(resource: Node2D, remaining_percent: float)
 
 enum State { AVAILABLE, SHAKING, BREAKING, REMOVED }
 
@@ -12,38 +13,60 @@ const HARVEST_VERTICAL_OFFSET: float = -14.0
 
 @export var territory_id: int = 0
 @export var resource_type: StringName = &"iron"
-@export_range(1, 20, 1) var hits_to_deplete: int = 5
+@export_range(0.0, 100.0, 0.1) var harvest_progress_percent: float = 100.0
+@export_range(0.1, 100.0, 0.1) var harvest_cost_per_cycle_percent: float = 20.0
 
 @onready var visual: Sprite2D = $Visual
 
 var _state: State = State.AVAILABLE
-var _hit_count: int = 0
 var _visual_origin: Vector2 = Vector2.ZERO
+var _hit_tween: Tween
 
 func _ready() -> void:
 	_visual_origin = visual.position
+	harvest_progress_percent = clampf(harvest_progress_percent, 0.0, 100.0)
 
 func can_be_targeted() -> bool:
-	return _state == State.AVAILABLE or _state == State.SHAKING
+	return harvest_progress_percent > 0.0 and (_state == State.AVAILABLE or _state == State.SHAKING)
+
+func get_harvest_positions(approach_position: Vector2) -> PackedVector2Array:
+	var preferred_side: float = -1.0 if approach_position.x < global_position.x else 1.0
+	return PackedVector2Array([
+		global_position + Vector2(preferred_side * HARVEST_SIDE_DISTANCE, HARVEST_VERTICAL_OFFSET),
+		global_position + Vector2(-preferred_side * HARVEST_SIDE_DISTANCE, HARVEST_VERTICAL_OFFSET),
+	])
 
 func get_harvest_position(approach_position: Vector2) -> Vector2:
-	var side: float = -1.0 if approach_position.x < global_position.x else 1.0
-	return global_position + Vector2(side * HARVEST_SIDE_DISTANCE, HARVEST_VERTICAL_OFFSET)
+	return get_harvest_positions(approach_position)[0]
+
+func get_harvest_cycle_cost_percent() -> float:
+	return harvest_cost_per_cycle_percent
+
+func consume_harvest_progress(amount_percent: float) -> bool:
+	if not can_be_targeted() or amount_percent <= 0.0:
+		return false
+	harvest_progress_percent = maxf(0.0, harvest_progress_percent - amount_percent)
+	harvest_progress_changed.emit(self, harvest_progress_percent)
+	_play_hit_reaction(harvest_progress_percent <= 0.0)
+	return true
 
 func register_hit() -> void:
-	if _state != State.AVAILABLE:
-		return
-	_hit_count += 1
+	consume_harvest_progress(harvest_cost_per_cycle_percent)
+
+func _play_hit_reaction(should_break: bool) -> void:
+	if is_instance_valid(_hit_tween):
+		_hit_tween.kill()
 	_state = State.SHAKING
-	var should_break: bool = _hit_count >= hits_to_deplete
-	var tween: Tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	tween.tween_property(visual, "position", _visual_origin + Vector2(-SHAKE_DISTANCE, 0.0), SHAKE_TIME * 0.25)
-	tween.tween_property(visual, "position", _visual_origin + Vector2(SHAKE_DISTANCE, 0.0), SHAKE_TIME * 0.5)
-	tween.tween_property(visual, "position", _visual_origin, SHAKE_TIME * 0.25)
-	tween.finished.connect(_on_hit_reaction_finished.bind(should_break))
+	visual.position = _visual_origin
+	visual.scale = Vector2.ONE
+	_hit_tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_hit_tween.tween_property(visual, "position", _visual_origin + Vector2(-SHAKE_DISTANCE, 0.0), SHAKE_TIME * 0.25)
+	_hit_tween.tween_property(visual, "position", _visual_origin + Vector2(SHAKE_DISTANCE, 0.0), SHAKE_TIME * 0.5)
+	_hit_tween.tween_property(visual, "position", _visual_origin, SHAKE_TIME * 0.25)
+	_hit_tween.finished.connect(_on_hit_reaction_finished.bind(should_break))
 
 func _on_hit_reaction_finished(should_break: bool) -> void:
-	if not should_break:
+	if not should_break and harvest_progress_percent > 0.0:
 		_state = State.AVAILABLE
 		return
 	_state = State.BREAKING

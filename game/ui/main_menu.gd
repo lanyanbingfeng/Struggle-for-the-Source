@@ -1,7 +1,7 @@
 class_name MainMenu
 extends CanvasLayer
 
-signal start_requested(multiplayer_mode: bool)
+signal start_requested(multiplayer_mode: bool, ai_difficulty: int)
 signal multiplayer_requested
 
 const BACKGROUND_TEXTURE: Texture2D = preload("res://art/ui/main_menu_background.png")
@@ -14,6 +14,7 @@ var _modal_layer: Control
 var _modal_panel: Panel
 var _modal_title: Label
 var _modal_body: Label
+var _difficulty_picker: OptionButton
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -88,9 +89,29 @@ func _build_ui() -> void:
 	var menu_hint: Label = _make_label("选择你的远征方式", 11, Color("#829b91"))
 	menu_column.add_child(menu_hint)
 
+	var single_player_row: HBoxContainer = HBoxContainer.new()
+	single_player_row.add_theme_constant_override(&"separation", 6)
+	menu_column.add_child(single_player_row)
+
 	var single_player: Button = _make_menu_button("单人游戏", true)
+	single_player.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	single_player.pressed.connect(_on_single_player_pressed)
-	menu_column.add_child(single_player)
+	single_player_row.add_child(single_player)
+
+	_difficulty_picker = OptionButton.new()
+	_difficulty_picker.custom_minimum_size = Vector2(98.0, 34.0)
+	_difficulty_picker.tooltip_text = "选择单人游戏的人机难度"
+	_difficulty_picker.focus_mode = Control.FOCUS_ALL
+	_difficulty_picker.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_difficulty_picker.add_theme_font_size_override(&"font_size", 12)
+	_difficulty_picker.add_theme_color_override(&"font_color", Color("#fff2c4"))
+	_difficulty_picker.add_theme_color_override(&"font_hover_color", Color.WHITE)
+	_difficulty_picker.add_theme_stylebox_override(&"normal", _make_button_style(Color("#27433bcf"), Color("#5d7f6b")))
+	_difficulty_picker.add_theme_stylebox_override(&"hover", _make_button_style(Color("#426653ef"), Color("#f0cf78")))
+	for difficulty_index: int in SimpleAIController.DIFFICULTY_NAMES.size():
+		_difficulty_picker.add_item("%s难度" % SimpleAIController.get_difficulty_name(difficulty_index), difficulty_index)
+	_difficulty_picker.select(SimpleAIController.Difficulty.NORMAL)
+	single_player_row.add_child(_difficulty_picker)
 
 	var multiplayer_button: Button = _make_menu_button("多人游戏", false)
 	multiplayer_button.pressed.connect(_on_multiplayer_pressed)
@@ -221,13 +242,18 @@ func _make_panel_style(background: Color, border: Color, border_width: int) -> S
 	return style
 
 func _on_single_player_pressed() -> void:
-	start_requested.emit(false)
+	start_requested.emit(false, get_selected_ai_difficulty())
+
+func get_selected_ai_difficulty() -> int:
+	if not is_instance_valid(_difficulty_picker):
+		return SimpleAIController.Difficulty.NORMAL
+	return _difficulty_picker.get_selected_id()
 
 func _on_multiplayer_pressed() -> void:
 	multiplayer_requested.emit()
 
 func _on_settings_pressed() -> void:
-	_show_modal("设置", "当前版本保留像素风显示与基础操作配置。\n\n进入游戏后按 Esc 可打开游戏菜单；单人模式会暂停时间，多人模式不会暂停。")
+	_show_modal("设置", "单人游戏可在开始按钮右侧选择人机难度：\n简单 / 普通 / 困难会逐级缩短思考时间，地狱难度会立即衔接下一步操作。\n\n所有难度都遵守战争迷雾与视野规则。")
 
 func _on_about_pressed() -> void:
 	_show_modal("关于争源", "《争源》是一款 2D 像素风俯视角策略与资源经营原型。\n\n在荒野中建立基地、收集资源，并逐步扩张你的势力。\n\n当前版本：基础交互原型")

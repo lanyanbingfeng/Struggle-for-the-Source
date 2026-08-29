@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="HeroSkillDefinition" load_steps=3 format=3]
+[ext_resource type="Script" path="res://game/data/hero_skill_definition.gd" id="1"]
+[ext_resource type="Texture2D" path="res://art/ui/skills/confucius_passive_education_icon.png" id="2_icon"]
+[resource]
+script = ExtResource("1")
+skill_id = &"you_jiao_wu_lei"
+display_name = "有教无类"
+target_mode = 0
+icon = ExtResource("2_icon")
+cast_range_tiles = 4.0
+effect_duration_seconds = 0.5
+values = PackedFloat32Array(4, 6, 8, 10, 12)
+secondary_values = PackedFloat32Array(4, 6, 8, 10, 12)
+description = "4格内友方战斗单位攻击提升4%/6%/8%/10%/12%，并获得4/6/8/10/12点防御。"

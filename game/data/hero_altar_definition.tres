@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="BuildingDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/data/building_definition.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://art/structures/structure_hero_altar_imagegen_2x2.png" id="2_texture"]
+
+[resource]
+script = ExtResource("1_script")
+building_id = &"hero_altar"
+display_name = "英雄台"
+description = "选择并召唤一名英雄；首次消耗2张召唤符，替换消耗1张。"
+texture = ExtResource("2_texture")
+card_texture = ExtResource("2_texture")
+tint = Color(1, 1, 1, 1)
+icon_text = "英"
+max_health = 760
+defense = 32
+cost_gold = 180
+cost_wood = 100
+cost_stone = 100
+construction_seconds = 12.0
+upgrade_iron_base_cost = 12
+interaction_type = &"hero_altar"
+production_resource_type = &""
+production_amount = 0
+production_interval_seconds = 120.0

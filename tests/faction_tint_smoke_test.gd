@@ -44,10 +44,12 @@ func _run() -> void:
 	map.queue_free()
 	if _failures.is_empty():
 		print("FACTION_TINT_SMOKE_OK")
+		await get_tree().create_timer(0.5).timeout
 		get_tree().quit(0)
 		return
 	for failure: String in _failures:
 		push_error("FACTION_TINT_SMOKE: %s" % failure)
+	await get_tree().create_timer(0.5).timeout
 	get_tree().quit(1)
 
 func _expect_sprite_tint(root_node: Node, expected_tint: Color, label: String) -> void:

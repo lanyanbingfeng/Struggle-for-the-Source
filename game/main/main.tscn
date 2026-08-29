@@ -17,6 +17,7 @@
 [ext_resource type="Script" path="res://game/world/world_command_overlay.gd" id="15_command_overlay"]
 [ext_resource type="PackedScene" path="res://game/ui/developer_panel.tscn" id="16_developer"]
 [ext_resource type="PackedScene" path="res://game/ui/summon_card_menu.tscn" id="17_summon_cards"]
+[ext_resource type="PackedScene" path="res://game/ui/hero_summon_panel.tscn" id="17_hero_panel"]
 [ext_resource type="Script" path="res://game/world/world_pathfinder.gd" id="18_pathfinder"]
 [ext_resource type="PackedScene" path="res://game/ui/unit_command_panel.tscn" id="19_unit_commands"]
 [ext_resource type="Script" path="res://game/systems/simple_ai_controller.gd" id="20_ai"]
@@ -81,6 +82,9 @@ texture = ExtResource("2_base")
 [node name="Buildings" type="Node2D" parent="."]
 y_sort_enabled = true
 
+[node name="WildMonsters" type="Node2D" parent="."]
+y_sort_enabled = true
+
 [node name="Trees" type="Node2D" parent="." unique_id=2122588471]
 y_sort_enabled = true
 
@@ -125,6 +129,8 @@ script = ExtResource("7_hud")
 script = ExtResource("20_ai")
 
 [node name="SummonCardMenu" parent="." instance=ExtResource("17_summon_cards")]
+
+[node name="HeroSummonPanel" parent="." instance=ExtResource("17_hero_panel")]
 
 [node name="MainMenu" parent="." unique_id=2122588475 instance=ExtResource("8_main_menu")]
 

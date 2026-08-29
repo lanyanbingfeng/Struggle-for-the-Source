@@ -4,6 +4,7 @@ extends Resource
 @export var definitions: Array[UnitDefinition] = []
 @export var recruitment_pool: Array[UnitDefinition] = []
 @export var summon_pool: Array[UnitDefinition] = []
+@export var hero_pool: Array[UnitDefinition] = []
 
 func get_definition(unit_id: StringName) -> UnitDefinition:
 	for definition: UnitDefinition in definitions:
@@ -24,6 +25,13 @@ func build_summon_cards(base_level: int, card_count: int, rng: RandomNumberGener
 		if not candidates.is_empty():
 			cards.append(candidates[rng.randi_range(0, candidates.size() - 1)])
 	return cards
+
+func build_hero_choices() -> Array[UnitDefinition]:
+	var choices: Array[UnitDefinition] = []
+	for definition: UnitDefinition in hero_pool:
+		if definition != null and definition.category == UnitDefinition.Category.HERO:
+			choices.append(definition)
+	return choices
 
 func definitions_from_ids(unit_ids: Array) -> Array[UnitDefinition]:
 	var cards: Array[UnitDefinition] = []

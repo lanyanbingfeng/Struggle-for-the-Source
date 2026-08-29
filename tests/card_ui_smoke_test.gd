@@ -2,6 +2,14 @@ extends Node
 
 const UNIT_CATALOG: UnitCatalog = preload("res://game/data/unit_catalog.tres")
 const BUILDING_CATALOG: BuildingCatalog = preload("res://game/data/building_catalog.tres")
+const WORLD_SPRITE_PATHS: Dictionary = {
+	&"lumber": NodePath("Visuals/Body"),
+	&"quarry": NodePath("Visuals/Body"),
+	&"explorer": NodePath("Sprite"),
+	&"builder": NodePath("Sprite"),
+	&"swordsman": NodePath("Sprite"),
+	&"treant": NodePath("Sprite"),
+}
 
 var _failures: PackedStringArray = []
 
@@ -30,12 +38,33 @@ func _run() -> void:
 	if card_row != null:
 		for card: Button in card_row.get_children():
 			_expect(card.custom_minimum_size == Vector2(104.0, 136.0), "卡牌没有使用新版高清布局尺寸")
+			if StringName(card.get_meta(&"unit_id", &"")) == &"swordsman":
+				var swordsman_definition: UnitDefinition = UNIT_CATALOG.get_definition(&"swordsman")
+				summon_menu.call(&"_on_card_mouse_entered", card, swordsman_definition)
+				await get_tree().process_frame
+				var skill_label := summon_menu.get("_detail_skill") as Label
+				var detail_panel := summon_menu.get("_detail_panel") as PanelContainer
+				_expect(skill_label != null and skill_label.text.contains("这一剑会很帅"), "剑士技能名称没有显示在召唤卡详情中")
+				_expect(skill_label != null and skill_label.text.contains("200%攻击力"), "剑士技能介绍没有显示200%攻击力伤害")
+				_expect(skill_label != null and skill_label.text.contains("低于5%"), "剑士技能介绍没有显示斩杀条件")
+				_expect(detail_panel != null and detail_panel.custom_minimum_size == Vector2(260.0, 188.0), "召唤卡详情面板没有使用紧凑尺寸")
+				_expect(detail_panel != null and detail_panel.size.x <= 260.0 and detail_panel.size.y <= 205.0, "召唤卡详情内容仍然撑得过大")
 
-	for unit_id: StringName in [&"lumber", &"explorer", &"builder", &"swordsman"]:
+	for unit_id: StringName in [&"lumber", &"quarry", &"explorer", &"builder", &"swordsman", &"treant"]:
 		var definition: UnitDefinition = UNIT_CATALOG.get_definition(unit_id)
 		_expect(definition != null and definition.card_texture != null, "%s缺少卡牌立绘" % unit_id)
 		if definition != null and definition.card_texture != null:
 			_expect(definition.card_texture.get_width() > 32 and definition.card_texture.get_height() > 32, "%s仍在使用32像素地图贴图" % unit_id)
+			var unit: Node = definition.scene.instantiate()
+			var sprite_path: NodePath = WORLD_SPRITE_PATHS.get(unit_id, NodePath("Sprite"))
+			var sprite: Sprite2D = unit.get_node_or_null(sprite_path) as Sprite2D
+			_expect(sprite != null, "%s缺少世界美术节点" % unit_id)
+			if sprite != null:
+				_expect(sprite.texture != null and sprite.texture.resource_path == definition.card_texture.resource_path, "%s的卡牌与世界没有共享同一张纹理" % unit_id)
+				var image: Image = sprite.texture.get_image()
+				var used_size: Vector2 = Vector2(image.get_used_rect().size) * sprite.scale.abs()
+				_expect(used_size.x <= 32.0 and used_size.y <= 32.0, "%s的世界美术超过一格：%s" % [unit_id, used_size])
+			unit.free()
 
 	var command_panel := UnitCommandPanel.new()
 	get_tree().root.add_child(command_panel)
