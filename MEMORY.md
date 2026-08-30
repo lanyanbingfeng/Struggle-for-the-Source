@@ -42,6 +42,7 @@
 - [鼠标滚轮视角缩放](memory/2026-08-27-camera-wheel-zoom.md)
 - [基地选址内嵌确认与键盘微调](memory/2026-08-27-base-placement-inline-confirmation.md)
 - [资源闭环、英雄台与野怪](memory/2026-08-28-resource-loop-hero-altar-wild-monster.md)
+- [幽网织母蜘蛛精英战斗](memory/2026-08-30-elite-spider-combat.md)
 - [开发者无限资源模式](memory/2026-08-28-developer-infinite-resources.md)
 - [建筑工人寻路施工与 ImageGen 独立建筑美术](memory/2026-08-28-builder-walk-construction-imagegen-buildings.md)
 - [基地五卡召唤、战斗开箱与建筑红绿预览](memory/2026-08-28-base-summon-chest-combat-build-preview.md)
@@ -51,6 +52,9 @@
 - [孔夫子底部技能栏与 QWE 输入修复](memory/2026-08-29-confucius-bottom-skill-hud-input-fix.md)
 - [技能图标径向冷却遮罩](memory/2026-08-29-radial-skill-cooldown-mask.md)
 - [孔夫子受术对象归属特效](memory/2026-08-29-confucius-target-owned-vfx.md)
+- [左上角进度资源独立图标](memory/2026-08-30-resource-hud-progress-icons.md)
+- [共享单位与建筑升级特效](memory/2026-08-30-shared-upgrade-vfx.md)
+- [升级特效尺寸与裁切修复](memory/2026-08-30-upgrade-vfx-size-clipping-fix.md)
 
 ## 维护规则
 

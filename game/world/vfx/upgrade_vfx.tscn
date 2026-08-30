@@ -1,0 +1,39 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://game/world/vfx/upgrade_vfx.gd" id="1_script"]
+[ext_resource type="Shader" path="res://game/world/vfx/canvas_world_upgrade_vfx.gdshader" id="2_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_upgrade"]
+shader = ExtResource("2_shader")
+shader_parameter/progress = 0.0
+shader_parameter/energy_color = Color(0.345098, 0.945098, 1, 1)
+shader_parameter/highlight_color = Color(1, 0.839216, 0.352941, 1)
+
+[node name="UpgradeVfx" type="Node2D" unique_id=306886198]
+z_index = 30
+z_as_relative = false
+script = ExtResource("1_script")
+
+[node name="UpgradeSurface" type="ColorRect" parent="."]
+unique_name_in_owner = true
+material = SubResource("ShaderMaterial_upgrade")
+offset_left = -64.0
+offset_top = -96.0
+offset_right = 64.0
+offset_bottom = 64.0
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="UpgradeLabel" type="Label" parent="."]
+unique_name_in_owner = true
+offset_left = -36.0
+offset_top = -48.0
+offset_right = 36.0
+offset_bottom = -24.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.878431, 0.419608, 1)
+theme_override_colors/font_outline_color = Color(0.0470588, 0.117647, 0.145098, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 15
+text = "升级!"
+horizontal_alignment = 1

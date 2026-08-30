@@ -28,8 +28,16 @@ const WILD_MONSTER_SCENE: PackedScene = preload("res://game/world/wild_monster.t
 const TERRITORY_SCENE: PackedScene = preload("res://game/world/player_territory.tscn")
 const PLAYER_BASE_SCENE: PackedScene = preload("res://game/world/player_base.tscn")
 const PRODUCTION_BUILDING_SCENE: PackedScene = preload("res://game/world/production_building.tscn")
+const UPGRADE_VFX_SCENE: PackedScene = preload("res://game/world/vfx/upgrade_vfx.tscn")
+const UPGRADE_VFX_SCRIPT: Script = preload("res://game/world/vfx/upgrade_vfx.gd")
 const UNIT_CATALOG: UnitCatalog = preload("res://game/data/unit_catalog.tres")
 const BUILDING_CATALOG: BuildingCatalog = preload("res://game/data/building_catalog.tres")
+const UPGRADE_TARGET_BASE: StringName = &"base"
+const UPGRADE_TARGET_UNIT: StringName = &"unit"
+const UPGRADE_TARGET_BUILDING: StringName = &"building"
+const UPGRADE_UNIT_VISUAL_DIAMETER: float = 52.0
+const UPGRADE_BUILDING_VISUAL_DIAMETER: float = 84.0
+const UPGRADE_BASE_VISUAL_DIAMETER: float = 92.0
 const TERRITORY_COLORS: Array[Color] = [
 	Color("#65b8ff"), Color("#ff8b72"), Color("#8bd17c"), Color("#d49bff"),
 	Color("#ffd166"), Color("#63d6c6"), Color("#ff7eb6"), Color("#a7b7ff"),
@@ -774,6 +782,7 @@ func _server_upgrade_base(owner_peer_id: int) -> bool:
 	_apply_base_level(owner_peer_id, current_level + 1)
 	if _multiplayer_mode:
 		_rpc_apply_base_level.rpc(owner_peer_id, current_level + 1)
+	_broadcast_upgrade_visual(UPGRADE_TARGET_BASE, owner_peer_id)
 	return true
 
 func _resource_state_can_afford(state: Dictionary, cost: Dictionary) -> bool:
@@ -912,6 +921,28 @@ func _rpc_play_unit_skill_visual(network_unit_id: int, skill_id_value: String, t
 				hero.play_skill_visual_on_target(skill_id, target_root, target_position)
 			return
 		unit.play_skill_visual(skill_id, target_position)
+
+func _on_monster_attack_visual_requested(monster_id: int, target_position: Vector2) -> void:
+	if not _has_gameplay_authority() or not _multiplayer_mode:
+		return
+	_rpc_play_monster_attack_visual.rpc(monster_id, target_position)
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_play_monster_attack_visual(monster_id: int, target_position: Vector2) -> void:
+	var monster: WildMonster = _wild_monsters.get(monster_id) as WildMonster
+	if is_instance_valid(monster):
+		monster.play_attack_visual(target_position)
+
+func _on_monster_skill_visual_requested(monster_id: int, target_position: Vector2) -> void:
+	if not _has_gameplay_authority() or not _multiplayer_mode:
+		return
+	_rpc_play_monster_skill_visual.rpc(monster_id, target_position)
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_play_monster_skill_visual(monster_id: int, target_position: Vector2) -> void:
+	var monster: WildMonster = _wild_monsters.get(monster_id) as WildMonster
+	if is_instance_valid(monster):
+		monster.play_skill_visual(target_position)
 
 func _resolve_skill_visual_target(target_kind: StringName, target_id: int) -> Node2D:
 	match target_kind:
@@ -1157,6 +1188,7 @@ func _server_upgrade_machine(owner_peer_id: int, unit_id: int) -> bool:
 	unit.call(&"set_machine_level", next_level)
 	if _multiplayer_mode:
 		_rpc_apply_machine_configuration.rpc(unit_id, bool(unit.get("work_enabled")), next_level)
+	_broadcast_upgrade_visual(UPGRADE_TARGET_UNIT, unit_id)
 	_notify_peer(owner_peer_id, "机器已升级至 Lv.%d" % next_level)
 	if owner_peer_id == _local_peer_id:
 		_refresh_unit_command_panel()
@@ -1312,6 +1344,7 @@ func _server_upgrade_hero(owner_peer_id: int, unit_id: int, skill_id: StringName
 	unit.call(&"set_hero_progression", next_hero_level, skill_levels)
 	if _multiplayer_mode:
 		_rpc_apply_hero_progression.rpc(unit_id, next_hero_level, skill_levels)
+	_broadcast_upgrade_visual(UPGRADE_TARGET_UNIT, unit_id)
 	_notify_peer(owner_peer_id, "%s已升至 Lv.%d" % ["技能" if skill_upgrade else "英雄", current_level + 1])
 	if owner_peer_id == _local_peer_id:
 		_refresh_unit_command_panel()
@@ -1382,6 +1415,7 @@ func _server_upgrade_building(owner_peer_id: int, building_id: int) -> bool:
 	building.set_building_level(building.building_level + 1)
 	if _multiplayer_mode:
 		_rpc_apply_building_level.rpc(building_id, building.building_level)
+	_broadcast_upgrade_visual(UPGRADE_TARGET_BUILDING, building_id)
 	unit_command_panel.show_building(building_id, building.definition, building.building_level, building.pending_amount)
 	_notify_peer(owner_peer_id, "%s已升级至 Lv.%d" % [building.definition.display_name, building.building_level])
 	return true
@@ -1407,6 +1441,41 @@ func _rpc_apply_machine_configuration(unit_id: int, enabled: bool, level: int) -
 	unit.call(&"set_machine_level", level)
 	if _selected_unit_ids.has(unit_id):
 		_refresh_unit_command_panel()
+
+func _broadcast_upgrade_visual(target_kind: StringName, target_id: int) -> void:
+	_play_upgrade_visual(target_kind, target_id)
+	if _multiplayer_mode:
+		_rpc_play_upgrade_visual.rpc(str(target_kind), target_id)
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_play_upgrade_visual(target_kind_value: String, target_id: int) -> void:
+	_play_upgrade_visual(StringName(target_kind_value), target_id)
+
+func _play_upgrade_visual(target_kind: StringName, target_id: int) -> void:
+	match target_kind:
+		UPGRADE_TARGET_BASE:
+			for player_base: PlayerBase in _player_base_by_territory_id.values():
+				if is_instance_valid(player_base) and player_base.owner_peer_id == target_id:
+					_spawn_upgrade_visual(player_base, UPGRADE_BASE_VISUAL_DIAMETER)
+		UPGRADE_TARGET_UNIT:
+			var unit: Node2D = _network_units.get(target_id) as Node2D
+			if is_instance_valid(unit):
+				_spawn_upgrade_visual(unit, UPGRADE_UNIT_VISUAL_DIAMETER)
+		UPGRADE_TARGET_BUILDING:
+			var building: ProductionBuilding = _network_buildings.get(target_id) as ProductionBuilding
+			if is_instance_valid(building):
+				_spawn_upgrade_visual(building, UPGRADE_BUILDING_VISUAL_DIAMETER)
+
+func _spawn_upgrade_visual(target_root: Node2D, visual_diameter: float) -> void:
+	var upgrade_vfx: Node2D = UPGRADE_VFX_SCENE.instantiate() as Node2D
+	if upgrade_vfx == null:
+		return
+	if upgrade_vfx.get_script() != UPGRADE_VFX_SCRIPT:
+		upgrade_vfx.queue_free()
+		return
+	upgrade_vfx.name = "UpgradeVfx_%d" % Time.get_ticks_msec()
+	target_root.add_child(upgrade_vfx)
+	upgrade_vfx.call(&"configure_visual_size", visual_diameter)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _rpc_request_attack_target(unit_id_values: Array, target_kind_value: String, target_id: int) -> void:
@@ -1643,7 +1712,12 @@ func _broadcast_unit_states() -> void:
 			continue
 		var monster_health: HealthComponent = monster.get_node_or_null("HealthComponent") as HealthComponent
 		if is_instance_valid(monster_health):
-			structure_states.append({"kind": "monster", "id": monster_id, "health": monster_health.current_health})
+			structure_states.append({
+				"kind": "monster",
+				"id": monster_id,
+				"health": monster_health.current_health,
+				"position": monster.global_position,
+			})
 	_rpc_apply_structure_states.rpc(structure_states)
 
 @rpc("authority", "call_remote", "unreliable_ordered", 1)
@@ -1674,7 +1748,10 @@ func _rpc_apply_structure_states(states: Array) -> void:
 		if str(state.get("kind", "")) == "base":
 			target = _player_base_by_territory_id.get(int(state.get("id", 0))) as Node2D
 		elif str(state.get("kind", "")) == "monster":
-			target = _wild_monsters.get(int(state.get("id", 0))) as Node2D
+			var monster: WildMonster = _wild_monsters.get(int(state.get("id", 0))) as WildMonster
+			target = monster
+			if is_instance_valid(monster):
+				monster.apply_network_state(state.get("position", monster.global_position) as Vector2)
 		else:
 			target = _network_buildings.get(int(state.get("id", 0))) as Node2D
 		if not is_instance_valid(target):
@@ -2356,14 +2433,15 @@ func _spawn_network_monster(spawn_data: Dictionary) -> void:
 	wild_monster_container.add_child(monster)
 	monster.configure(monster_id, _has_gameplay_authority())
 	monster.set_meta(&"cell_rect", spawn_data.get("cell_rect", Rect2i()) as Rect2i)
-	monster.setup_combat_context(_get_monster_targets, TILE_SIZE)
+	monster.setup_combat_context(_get_monster_targets, world_pathfinder.find_path, TILE_SIZE)
+	monster.attack_visual_requested.connect(_on_monster_attack_visual_requested)
+	monster.skill_visual_requested.connect(_on_monster_skill_visual_requested)
 	_wild_monsters[monster_id] = monster
 	var health: HealthComponent = _attach_vitals(
-		monster, 0, 520.0, 8.0, 0.0, 0.0, 0.0,
-		Vector2(0.0, -70.0), 86.0, &"monster", monster_id
+		monster, 0, WildMonster.MAX_HEALTH, WildMonster.DEFENSE, 0.0, 0.0, 0.0,
+		Vector2(0.0, -75.0), 86.0, &"monster", monster_id
 	)
-	health.combat_radius = 50.0
-	_schedule_navigation_rebuild()
+	health.combat_radius = 44.0
 
 func _get_monster_targets() -> Array[HealthComponent]:
 	var result: Array[HealthComponent] = []
@@ -2681,7 +2759,6 @@ func _remove_damageable(entity_kind: StringName, entity_id: int) -> void:
 		&"monster":
 			target = _wild_monsters.get(entity_id) as Node2D
 			_wild_monsters.erase(entity_id)
-			_schedule_navigation_rebuild()
 		&"base":
 			target = _player_base_by_territory_id.get(entity_id) as Node2D
 			if is_instance_valid(target):
@@ -3314,7 +3391,7 @@ func _schedule_navigation_rebuild() -> void:
 
 func _rebuild_navigation_obstacles() -> void:
 	_navigation_rebuild_pending = false
-	var obstacle_roots: Array[Node] = [base_container, building_container, wild_monster_container, tree_container, stone_container, rare_mineral_container]
+	var obstacle_roots: Array[Node] = [base_container, building_container, tree_container, stone_container, rare_mineral_container]
 	world_pathfinder.rebuild_obstacles(obstacle_roots)
 
 func _clear_children(container: Node) -> void:

@@ -32,6 +32,7 @@ var _network_working: bool = false
 var _navigation_path: PackedVector2Array = PackedVector2Array()
 var _navigation_index: int = 0
 var _selected: bool = false
+var _control_remaining: float = 0.0
 
 func setup(
 	mineable_container: Node2D,
@@ -47,6 +48,7 @@ func setup(
 	_target_stone = null
 	_target_work_position = Vector2.ZERO
 	_mine_elapsed = 0.0
+	_control_remaining = 0.0
 	_set_state(State.SEARCHING if simulation_enabled and work_enabled else State.WAITING)
 
 func configure_network(new_unit_id: int, new_owner_peer_id: int, new_definition: UnitDefinition) -> void:
@@ -84,7 +86,7 @@ func set_selected(selected: bool) -> void:
 	queue_redraw()
 
 func is_working() -> bool:
-	return _state == State.MINING
+	return _state == State.MINING and _control_remaining <= 0.0
 
 func get_vision_radius_world(tile_size: int) -> float:
 	return (definition.vision_radius_tiles if definition != null else 4.0) * float(tile_size)
@@ -93,6 +95,10 @@ func _physics_process(delta: float) -> void:
 	if not simulation_enabled:
 		global_position = global_position.lerp(_network_position, 0.45)
 		_update_drill(delta, _network_working)
+		return
+	_control_remaining = maxf(0.0, _control_remaining - delta)
+	if _control_remaining > 0.0:
+		_update_drill(delta, false)
 		return
 	_update_drill(delta, _state == State.MINING)
 	if not work_enabled:
@@ -130,6 +136,12 @@ func _process_manual_move(delta: float) -> void:
 		return
 	_set_state(State.MANUAL_MOVING)
 	global_position = global_position.move_toward(_navigation_path[_navigation_index], MOVE_SPEED * delta)
+
+func apply_control(duration: float) -> void:
+	_control_remaining = maxf(_control_remaining, duration)
+
+func get_control_remaining() -> float:
+	return _control_remaining
 
 func _select_nearest_mineable() -> void:
 	_clear_harvest_target()

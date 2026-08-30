@@ -6,17 +6,30 @@
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_monster"]
 size = Vector2(54, 46)
 
-[node name="WildMonster" type="Node2D"]
+[node name="WildMonster" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 2
+motion_mode = 1
 script = ExtResource("1_script")
 
 [node name="Sprite" type="Sprite2D" parent="."]
 texture_filter = 1
 texture = ExtResource("2_texture")
 
-[node name="ObstacleBody" type="StaticBody2D" parent="."]
-collision_layer = 2
-collision_mask = 2
+[node name="NameLabel" type="Label" parent="."]
+z_index = 951
+offset_left = -110.0
+offset_top = -101.0
+offset_right = 110.0
+offset_bottom = -79.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.92549, 0.772549, 0.313725, 1)
+theme_override_colors/font_outline_color = Color(0.137255, 0.0392157, 0.180392, 0.95)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 14
+text = "精英｜幽网织母·维洛莎"
+horizontal_alignment = 1
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="ObstacleBody"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, 4)
 shape = SubResource("RectangleShape2D_monster")

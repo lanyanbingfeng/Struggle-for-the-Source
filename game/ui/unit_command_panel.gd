@@ -501,8 +501,7 @@ func _rebuild_hero_actions(definition: UnitDefinition, skill_levels: Dictionary)
 		upgrade.focus_mode = Control.FOCUS_NONE
 		upgrade.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		upgrade.add_theme_font_size_override(&"font_size", 9)
-		upgrade.mouse_entered.connect(_show_hero_skill_tooltip.bind(skill, level))
-		upgrade.mouse_exited.connect(_hide_hero_skill_tooltip)
+		upgrade.mouse_entered.connect(_hide_hero_skill_tooltip)
 		upgrade.pressed.connect(_on_hero_skill_upgrade_pressed.bind(skill_id))
 		slot.add_child(upgrade)
 	_refresh_hero_skill_button_styles()

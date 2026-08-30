@@ -8,6 +8,9 @@ const RESOURCE_ICONS: Dictionary = {
 	&"wood": preload("res://art/ui/resource_icons/resource_wood.png"),
 	&"stone": preload("res://art/ui/resource_icons/resource_stone.png"),
 	&"iron": preload("res://art/ui/resource_icons/resource_iron.png"),
+	&"summon_token": preload("res://art/ui/resource_icons/resource_summon_token.png"),
+	&"skill_experience": preload("res://art/ui/resource_icons/resource_skill_experience.png"),
+	&"experience": preload("res://art/ui/resource_icons/resource_experience.png"),
 }
 
 var _resource_manager: Node

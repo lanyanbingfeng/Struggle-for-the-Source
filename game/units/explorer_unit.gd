@@ -18,6 +18,7 @@ var _path_provider: Callable
 var _path_stuck_elapsed: float = 0.0
 var _network_position: Vector2 = Vector2.ZERO
 var _selected: bool = false
+var _control_remaining: float = 0.0
 var construction_busy: bool = false
 
 func configure_network(new_unit_id: int, new_owner_peer_id: int, new_territory_id: int, new_definition: UnitDefinition, should_simulate: bool) -> void:
@@ -27,6 +28,7 @@ func configure_network(new_unit_id: int, new_owner_peer_id: int, new_territory_i
 	definition = new_definition
 	simulation_enabled = should_simulate
 	_network_position = global_position
+	_control_remaining = 0.0
 	queue_redraw()
 
 func setup_navigation(path_provider: Callable) -> void:
@@ -80,6 +82,10 @@ func _physics_process(delta: float) -> void:
 	if not simulation_enabled:
 		global_position = global_position.lerp(_network_position, 0.45)
 		return
+	_control_remaining = maxf(0.0, _control_remaining - delta)
+	if _control_remaining > 0.0:
+		velocity = Vector2.ZERO
+		return
 	if not has_move_target or definition == null:
 		velocity = Vector2.ZERO
 		_path_stuck_elapsed = 0.0
@@ -117,6 +123,12 @@ func _rebuild_navigation_path() -> void:
 		set_navigation_path(PackedVector2Array())
 		return
 	set_navigation_path(result as PackedVector2Array)
+
+func apply_control(duration: float) -> void:
+	_control_remaining = maxf(_control_remaining, duration)
+
+func get_control_remaining() -> float:
+	return _control_remaining
 
 func _draw() -> void:
 	if _selected:

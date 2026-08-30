@@ -2,6 +2,10 @@ extends Node
 
 const UNIT_CATALOG: UnitCatalog = preload("res://game/data/unit_catalog.tres")
 const BUILDING_CATALOG: BuildingCatalog = preload("res://game/data/building_catalog.tres")
+const UPGRADE_VFX_SCRIPT: Script = preload("res://game/world/vfx/upgrade_vfx.gd")
+const UPGRADE_UNIT_EXPECTED_SCALE: float = 52.0 / 64.0
+const UPGRADE_BUILDING_EXPECTED_SCALE: float = 84.0 / 64.0
+const UPGRADE_BASE_EXPECTED_SCALE: float = 92.0 / 64.0
 
 var _failures: PackedStringArray = []
 
@@ -44,6 +48,11 @@ func _run() -> void:
 	(map.get("_pending_summon_by_peer_id") as Dictionary).erase(1)
 	map.set("_card_menu_mode", &"")
 	map.set("_active_summon_offer_id", 0)
+	var upgrade_test_bases: Dictionary = map.get("_player_base_by_territory_id") as Dictionary
+	var upgrade_test_base: PlayerBase = upgrade_test_bases.get(1) as PlayerBase
+	_expect(bool(map.call(&"_server_upgrade_base", 1)), "基地升级失败")
+	_expect(is_instance_valid(upgrade_test_base) and upgrade_test_base.base_level == 2, "基地升级没有提升等级")
+	_expect_upgrade_vfx(upgrade_test_base, "基地", UPGRADE_BASE_EXPECTED_SCALE)
 
 	# Streamed resources outside territories must remain part of navigation even when their markers are unloaded.
 	var world_pathfinder := map.get("world_pathfinder") as WorldPathfinder
@@ -95,6 +104,7 @@ func _run() -> void:
 		_expect(int(map.call(&"_count_territory_trees", 1)) == initial_tree_count, "领地树木没有在一分钟后恢复一棵")
 
 	_expect(bool(map.call(&"_server_recruit_unit", 1, &"builder", 1)), "建筑工人应可从招募池招募")
+	_expect(bool(map.call(&"_server_spawn_unit", 1, &"lumber", 1)), "玩家应可生成伐木机器用于升级特效验证")
 	_expect(bool(map.call(&"_server_spawn_unit", 1, &"swordsman", 1)), "玩家应可生成剑士")
 	_expect(bool(map.call(&"_server_spawn_unit", 2, &"swordsman", 2)), "敌方应可生成剑士")
 	_expect(bool(map.call(&"_server_spawn_unit", 2, &"swordsman", 2)), "敌方应可生成第二名剑士")
@@ -103,8 +113,9 @@ func _run() -> void:
 
 	var units := map.get("_network_units") as Dictionary
 	var wild_monsters := map.get("_wild_monsters") as Dictionary
-	_expect(wild_monsters.size() == 6, "野外基础怪物数量不正确")
+	_expect(wild_monsters.size() == 6, "野外蜘蛛精英数量不正确")
 	var builder := _find_unit(units, 1, &"builder")
+	var lumber_machine: Node2D = _find_unit(units, 1, &"lumber")
 	var local_sword := _find_unit(units, 1, &"swordsman")
 	var enemy_swords: Array[Node2D] = _find_units(units, 2, &"swordsman")
 	var enemy_sword: Node2D = enemy_swords[0] if not enemy_swords.is_empty() else null
@@ -114,8 +125,14 @@ func _run() -> void:
 	if is_instance_valid(local_sword):
 		local_sword_ids.append(int(local_sword.get("unit_id")))
 	_expect(is_instance_valid(builder), "建筑工人实例缺失")
+	_expect(is_instance_valid(lumber_machine), "伐木机器实例缺失")
 	_expect(is_instance_valid(local_sword) and is_instance_valid(enemy_sword) and is_instance_valid(execute_victim), "剑士实例缺失")
 	_expect(is_instance_valid(treant), "树人实例缺失")
+	if is_instance_valid(lumber_machine):
+		lumber_machine.call(&"set_work_enabled", false)
+		_expect(bool(map.call(&"_server_upgrade_machine", 1, int(lumber_machine.get("unit_id")))), "伐木机器升级失败")
+		_expect(int(lumber_machine.get("machine_level")) == 2, "伐木机器升级没有提升等级")
+		_expect_upgrade_vfx(lumber_machine, "机器单位", UPGRADE_UNIT_EXPECTED_SCALE)
 	var combat_chests: Dictionary = map.get("_combat_chests") as Dictionary
 	var territory_chest: Node2D
 	for chest: Node2D in combat_chests.values():
@@ -143,6 +160,37 @@ func _run() -> void:
 	if not wild_monsters.is_empty():
 		var monster: WildMonster = wild_monsters.values()[0] as WildMonster
 		var monster_health: HealthComponent = monster.get_node("HealthComponent") as HealthComponent
+		_expect(monster is CharacterBody2D, "幽网织母仍不是可移动的CharacterBody2D")
+		_expect(monster.get_display_name() == "幽网织母·维洛莎", "蜘蛛精英名称不正确")
+		_expect(is_equal_approx(monster_health.max_health, WildMonster.MAX_HEALTH) and is_equal_approx(monster_health.defense, WildMonster.DEFENSE), "蜘蛛精英没有使用强化后的生命与防御")
+		_expect(WildMonster.ATTACK_DAMAGE >= 48.0 and WildMonster.MOVEMENT_SPEED > 0.0, "蜘蛛精英的攻击或移动数值仍然过弱")
+		var name_label: Label = monster.get_node_or_null("NameLabel") as Label
+		_expect(is_instance_valid(name_label) and name_label.text.contains("精英") and name_label.text.contains("维洛莎"), "蜘蛛精英没有显示名称与精英标记")
+		monster.simulation_enabled = false
+		var monster_origin: Vector2 = monster.global_position
+		monster.call(&"_move_toward_point", monster_origin + Vector2(160.0, 0.0))
+		_expect(monster.velocity.length() >= WildMonster.MOVEMENT_SPEED - 0.01, "蜘蛛精英追击时没有产生移动速度")
+		monster.global_position = monster_origin
+		monster.velocity = Vector2.ZERO
+		monster.play_attack_visual(monster_origin + Vector2(128.0, 0.0))
+		var web_victim_health: HealthComponent = local_sword.get_node("HealthComponent") as HealthComponent
+		var victim_origin: Vector2 = local_sword.global_position
+		local_sword.global_position = monster_origin + Vector2(96.0, 0.0)
+		web_victim_health.evasion_chance = 0.0
+		var victim_health_before_web: float = web_victim_health.current_health
+		var web_targets: Array[HealthComponent] = [web_victim_health]
+		monster.setup_combat_context(_return_health_targets.bind(web_targets), Callable(), 32)
+		monster.set("_target", web_victim_health)
+		monster.set("_skill_cooldown_remaining", 0.0)
+		_expect(bool(monster.call(&"_try_cast_web_skill")), "幽网织母没有成功施放范围蛛网")
+		_expect(web_victim_health.current_health < victim_health_before_web, "范围蛛网没有造成伤害")
+		_expect(float(local_sword.call(&"get_control_remaining")) >= WildMonster.WEB_SKILL_CONTROL_SECONDS - 0.01, "范围蛛网没有控制命中单位")
+		await get_tree().process_frame
+		_expect(is_instance_valid(monster.get_node_or_null("EliteSpiderVenomBoltVfx")), "毒液弹幕攻击特效没有生成")
+		_expect(is_instance_valid(monster.get_node_or_null("EliteSpiderWebFieldVfx")), "范围蛛网技能特效没有生成")
+		web_victim_health.apply_network_state(web_victim_health.max_health, web_victim_health.current_mana)
+		local_sword.set("_control_remaining", 0.0)
+		local_sword.global_position = victim_origin
 		var token_before_drop: int = int((states[1] as Dictionary).get("summon_token", 0))
 		var skill_before_drop: int = int((states[1] as Dictionary).get("skill_experience", 0))
 		var experience_before_drop: int = int((states[1] as Dictionary).get("experience", 0))
@@ -347,6 +395,7 @@ func _run() -> void:
 		var iron_before_upgrade: int = int((states[1] as Dictionary).get("iron", 0))
 		_expect(bool(map.call(&"_server_upgrade_building", 1, building.building_id)), "铁无法用于升级建筑")
 		_expect(building.building_level == 2 and int((states[1] as Dictionary).get("iron", 0)) < iron_before_upgrade, "建筑升级没有提升等级或扣除铁")
+		_expect_upgrade_vfx(building, "生产建筑", UPGRADE_BUILDING_EXPECTED_SCALE)
 
 	# The hero altar offers all heroes, charges 2 summon tokens initially and 1 on replacement.
 	builder.global_position = Vector2(73.5 * 32.0, 75.5 * 32.0)
@@ -388,6 +437,7 @@ func _run() -> void:
 			_expect(bool(map.call(&"_server_upgrade_hero", 1, active_hero_id, &"you_jiao_wu_lei")), "技能经验无法升级英雄技能")
 			_expect(active_hero.hero_level == 2 and active_hero.get_skill_level(&"you_jiao_wu_lei") == 2, "英雄或技能等级没有提升")
 			_expect(int((states[1] as Dictionary).get("experience", 0)) < experience_before_upgrade and int((states[1] as Dictionary).get("skill_experience", 0)) < skill_experience_before_upgrade, "英雄成长没有扣除对应经验")
+			_expect_upgrade_vfx(active_hero, "英雄与技能", UPGRADE_UNIT_EXPECTED_SCALE)
 
 			# The passive aura and all three active Confucius skills must apply real authority-side effects.
 			var command_panel: UnitCommandPanel = map.get("unit_command_panel") as UnitCommandPanel
@@ -565,6 +615,8 @@ func _run() -> void:
 	_expect_asset("res://art/vfx/confucius_q_benevolence_heal_8f.png", Vector2i(1776, 888))
 	_expect_asset("res://art/vfx/confucius_w_ritual_field_8f.png", Vector2i(1776, 888))
 	_expect_asset("res://art/vfx/confucius_e_travel_inspiration_8f.png", Vector2i(1776, 888))
+	_expect_asset("res://art/vfx/elite_spider_venom_bolt.png", Vector2i(1774, 887))
+	_expect_asset("res://art/vfx/elite_spider_web_field.png", Vector2i(1254, 1254))
 	_finish(map)
 
 func _find_unit(units: Dictionary, owner_peer_id: int, definition_id: StringName) -> Node2D:
@@ -581,6 +633,9 @@ func _find_units(units: Dictionary, owner_peer_id: int, definition_id: StringNam
 		if int(unit.get("owner_peer_id")) == owner_peer_id and definition != null and definition.unit_id == definition_id:
 			matches.append(unit)
 	return matches
+
+func _return_health_targets(targets: Array[HealthComponent]) -> Array[HealthComponent]:
+	return targets
 
 func _find_external_resource_detour(pathfinder: WorldPathfinder, obstacle_cells: Array[Vector2i], tile_size: int) -> Dictionary:
 	var axes: Array[Vector2i] = [Vector2i.RIGHT, Vector2i.DOWN]
@@ -615,6 +670,24 @@ func _expect_sprite_tint(root_node: Node, expected_tint: Color, label: String) -
 	for visual_node: Node in sprites:
 		var sprite: Sprite2D = visual_node as Sprite2D
 		_expect(sprite != null and sprite.self_modulate.is_equal_approx(expected_tint), "%s颜色不正确" % label)
+
+func _expect_upgrade_vfx(target_root: Node, label: String, expected_scale: float) -> void:
+	if not is_instance_valid(target_root):
+		_expect(false, "%s实例缺失，无法验证升级特效" % label)
+		return
+	var matched_vfx: Node2D
+	for child: Node in target_root.get_children():
+		if child is Node2D and child.get_script() == UPGRADE_VFX_SCRIPT:
+			matched_vfx = child as Node2D
+			break
+	_expect(is_instance_valid(matched_vfx), "%s升级成功后没有触发共享升级特效" % label)
+	if not is_instance_valid(matched_vfx):
+		return
+	var surface: ColorRect = matched_vfx.get_node_or_null("UpgradeSurface") as ColorRect
+	var surface_material: ShaderMaterial = surface.material as ShaderMaterial if surface != null else null
+	_expect(surface_material != null and surface_material.shader != null, "%s升级特效没有使用CanvasItem Shader" % label)
+	_expect(matched_vfx.get_node_or_null("UpgradeSparkles") is CPUParticles2D, "%s升级特效缺少上升粒子" % label)
+	_expect(matched_vfx.scale.is_equal_approx(Vector2.ONE * expected_scale), "%s升级特效没有使用收紧后的目标尺寸" % label)
 
 func _expect_vfx_frames(root_node: Node, node_path: String, expected_count: int, label: String) -> void:
 	var vfx := root_node.get_node_or_null(node_path) as AnimatedSprite2D
