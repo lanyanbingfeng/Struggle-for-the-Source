@@ -5,7 +5,7 @@ const MAX_LEVEL: int = 9
 const SUMMON_COST: int = 10
 const SUMMON_CARD_COUNT: int = 5
 
-const RARITY_NAMES: PackedStringArray = ["普通", "优秀", "稀有", "史诗", "传说"]
+const RARITY_NAMES: PackedStringArray = ["白色一般", "绿色普通", "蓝色优秀", "紫色优秀", "金色传说"]
 const SUMMON_PROBABILITIES: Array = [
 	[100, 0, 0, 0, 0],
 	[90, 10, 0, 0, 0],

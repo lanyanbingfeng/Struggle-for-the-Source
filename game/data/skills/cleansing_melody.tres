@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="CombatSkillDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/data/combat_skill_definition.gd" id="1_script"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/cleansing_musician_skill_cleansing_melody_frames.tres" id="2_vfx"]
+
+[resource]
+script = ExtResource("1_script")
+vfx_frames = ExtResource("2_vfx")
+skill_id = &"cleansing_melody"
+display_name = "清心曲"
+target_mode = 8
+shape = 1
+vfx_placement = 2
+mana_cost = 65
+cooldown_seconds = 10.0
+cast_range_tiles = 3.75
+radius_tiles = 3.75
+effect_duration_seconds = 2.5
+cleanse_movement_slow = true
+cleanse_attack_slow = true
+cleanse_control = true
+grant_control_immunity = true

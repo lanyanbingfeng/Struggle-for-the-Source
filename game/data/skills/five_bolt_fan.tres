@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CombatSkillDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/data/combat_skill_definition.gd" id="1_script"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/repeating_crossbowman_skill_five_bolt_fan_frames.tres" id="2_vfx"]
+
+[resource]
+script = ExtResource("1_script")
+vfx_frames = ExtResource("2_vfx")
+skill_id = &"five_bolt_fan"
+display_name = "五矢散射"
+target_mode = 1
+shape = 4
+vfx_placement = 0
+mana_cost = 60
+cooldown_seconds = 8.0
+cast_range_tiles = 5.0
+cone_angle_degrees = 70.0
+max_targets = 16
+damage_multiplier = 1.3

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CombatSkillDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/data/combat_skill_definition.gd" id="1_script"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/divine_arm_crossbowman_skill_armor_piercing_bolt_frames.tres" id="2_vfx"]
+
+[resource]
+script = ExtResource("1_script")
+vfx_frames = ExtResource("2_vfx")
+skill_id = &"armor_piercing_bolt"
+display_name = "破甲弩矢"
+target_mode = 3
+shape = 0
+vfx_placement = 1
+mana_cost = 65
+cooldown_seconds = 10.0
+cast_range_tiles = 6.5
+damage_multiplier = 2.2
+defense_ignore_ratio = 0.7

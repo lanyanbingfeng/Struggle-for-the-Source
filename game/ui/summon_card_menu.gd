@@ -311,20 +311,20 @@ func _make_badge_style(accent: Color) -> StyleBoxFlat:
 func _rarity_short_name(rarity: UnitDefinition.Rarity) -> String:
 	match rarity:
 		UnitDefinition.Rarity.UNCOMMON:
-			return "良"
+			return "普"
 		UnitDefinition.Rarity.RARE:
-			return "稀"
+			return "优"
 		UnitDefinition.Rarity.EPIC:
-			return "史"
+			return "优"
 		UnitDefinition.Rarity.LEGENDARY:
 			return "传"
 		_:
-			return "普"
+			return "般"
 
 func _rarity_color(rarity: UnitDefinition.Rarity) -> Color:
 	match rarity:
 		UnitDefinition.Rarity.UNCOMMON:
-			return Color("#bde9a5")
+			return Color("#6fd36f")
 		UnitDefinition.Rarity.RARE:
 			return Color("#8fc5ff")
 		UnitDefinition.Rarity.EPIC:
@@ -332,7 +332,7 @@ func _rarity_color(rarity: UnitDefinition.Rarity) -> Color:
 		UnitDefinition.Rarity.LEGENDARY:
 			return Color("#ffd36a")
 		_:
-			return Color("#fff1bd")
+			return Color("#f4f4f4")
 
 func _make_detail_style() -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()

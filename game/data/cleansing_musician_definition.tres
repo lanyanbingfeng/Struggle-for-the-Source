@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="UnitDefinition" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://game/data/unit_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://game/units/cleansing_musician_unit.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://game/data/skills/cleansing_melody.tres" id="3_skill"]
+[ext_resource type="Texture2D" path="res://art/ui/cards/card_cleansing_musician_art.png" id="4_card"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/cleansing_musician_attack_frames.tres" id="5_attack"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = &"cleansing_musician"
+display_name = "清音乐伎"
+category = 1
+rarity = 0
+scene = ExtResource("2_scene")
+attack_vfx_placement = 1
+combat_skill = ExtResource("3_skill")
+card_texture = ExtResource("4_card")
+attack_vfx_frames = ExtResource("5_attack")
+role_name = "群体净化"
+description = "以清音解除控制和迟滞，并短暂保护友军不受控制。"
+max_health = 135
+attack = 34
+defense = 4
+attack_interval_seconds = 1.45
+attack_range_tiles = 5
+chase_range_tiles = 8
+evasion_chance = 0.15
+vision_radius_tiles = 7.0
+movement_speed = 110.0
+max_mana = 100
+mana_regen_per_second = 6.5
+skill_id = &"cleansing_melody"
+skill_name = "清心曲"
+skill_description = "消耗65魔法，清除3.75格友军的控制和攻移速降低，并给予2.5秒控制免疫；冷却10秒。"
+skill_mana_cost = 65
+skill_cooldown_seconds = 10.0
+footprint_tiles = 1
+formation_spacing = 36.0

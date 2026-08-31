@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="UnitDefinition" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://game/data/unit_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://game/units/repeating_crossbowman_unit.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://game/data/skills/five_bolt_fan.tres" id="3_skill"]
+[ext_resource type="Texture2D" path="res://art/ui/cards/card_repeating_crossbowman_art.png" id="4_card"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/repeating_crossbowman_attack_frames.tres" id="5_attack"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = &"repeating_crossbowman"
+display_name = "连弩兵"
+category = 1
+rarity = 0
+scene = ExtResource("2_scene")
+attack_vfx_placement = 1
+combat_skill = ExtResource("3_skill")
+card_texture = ExtResource("4_card")
+attack_vfx_frames = ExtResource("5_attack")
+role_name = "扇形清杂"
+description = "快速发射连弩压制轻甲集群，但对重甲伤害有限。"
+max_health = 145
+attack = 32
+defense = 6
+attack_interval_seconds = 0.8
+attack_range_tiles = 4.75
+chase_range_tiles = 8
+evasion_chance = 0.08
+vision_radius_tiles = 7.0
+movement_speed = 102.0
+max_mana = 100
+mana_regen_per_second = 8
+skill_id = &"five_bolt_fan"
+skill_name = "五矢散射"
+skill_description = "消耗60魔法，对5格、70度扇形内每个敌人造成一次130%攻击伤害；冷却8秒。"
+skill_mana_cost = 60
+skill_cooldown_seconds = 8.0
+footprint_tiles = 1
+formation_spacing = 36.0

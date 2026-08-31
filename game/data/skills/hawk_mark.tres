@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CombatSkillDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/data/combat_skill_definition.gd" id="1_script"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/hawk_scout_skill_hawk_mark_frames.tres" id="2_vfx"]
+
+[resource]
+script = ExtResource("1_script")
+vfx_frames = ExtResource("2_vfx")
+skill_id = &"hawk_mark"
+display_name = "鹰眼追猎"
+target_mode = 4
+shape = 0
+vfx_placement = 1
+mana_cost = 60
+cooldown_seconds = 10.0
+cast_range_tiles = 7.0
+effect_duration_seconds = 6.0
+damage_taken_bonus_ratio = 0.2
+reveal_radius_tiles = 1.5

@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="UnitDefinition" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://game/data/unit_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://game/units/hawk_scout_unit.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://game/data/skills/hawk_mark.tres" id="3_skill"]
+[ext_resource type="Texture2D" path="res://art/ui/cards/card_hawk_scout_art.png" id="4_card"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/hawk_scout_attack_frames.tres" id="5_attack"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = &"hawk_scout"
+display_name = "驭鹰斥候"
+category = 1
+rarity = 0
+scene = ExtResource("2_scene")
+attack_vfx_placement = 1
+combat_skill = ExtResource("3_skill")
+card_texture = ExtResource("4_card")
+attack_vfx_frames = ExtResource("5_attack")
+role_name = "视野与集火"
+description = "高速远程斥候，以猎鹰标记高价值目标并提供共享视野。"
+max_health = 130
+attack = 38
+defense = 4
+attack_interval_seconds = 1.15
+attack_range_tiles = 5.25
+chase_range_tiles = 9
+evasion_chance = 0.18
+vision_radius_tiles = 10.0
+movement_speed = 132.0
+max_mana = 100
+mana_regen_per_second = 6
+skill_id = &"hawk_mark"
+skill_name = "鹰眼追猎"
+skill_description = "消耗60魔法，标记敌人6秒，使其受到最终伤害提高20%，并共享目标周围1.5格视野；冷却10秒。"
+skill_mana_cost = 60
+skill_cooldown_seconds = 10.0
+footprint_tiles = 1
+formation_spacing = 36.0

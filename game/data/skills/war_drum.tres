@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CombatSkillDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/data/combat_skill_definition.gd" id="1_script"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/war_drummer_skill_war_drum_frames.tres" id="2_vfx"]
+
+[resource]
+script = ExtResource("1_script")
+vfx_frames = ExtResource("2_vfx")
+skill_id = &"war_drum"
+display_name = "破阵鼓"
+target_mode = 7
+shape = 1
+vfx_placement = 2
+mana_cost = 70
+cooldown_seconds = 10.0
+cast_range_tiles = 5.0
+radius_tiles = 3.5
+effect_duration_seconds = 5.0
+attack_bonus_ratio = 0.18
+movement_bonus_ratio = 0.15

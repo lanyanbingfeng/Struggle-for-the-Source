@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="UnitDefinition" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://game/data/unit_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://game/units/imperial_spearman_unit.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://game/data/skills/spear_repulse.tres" id="3_skill"]
+[ext_resource type="Texture2D" path="res://art/ui/cards/card_imperial_spearman_art.png" id="4_card"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/imperial_spearman_attack_frames.tres" id="5_attack"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = &"imperial_spearman"
+display_name = "羽林枪兵"
+category = 1
+rarity = 0
+scene = ExtResource("2_scene")
+attack_vfx_placement = 0
+combat_skill = ExtResource("3_skill")
+card_texture = ExtResource("4_card")
+attack_vfx_frames = ExtResource("5_attack")
+role_name = "阵线控制"
+description = "持长枪维持阵线，以突刺和击退阻止敌人靠近。"
+max_health = 190
+attack = 46
+defense = 16
+attack_interval_seconds = 1.35
+attack_range_tiles = 1.75
+chase_range_tiles = 6.5
+evasion_chance = 0.08
+vision_radius_tiles = 7.0
+movement_speed = 112.0
+max_mana = 100
+mana_regen_per_second = 7
+skill_id = &"spear_repulse"
+skill_name = "拒马突刺"
+skill_description = "消耗65魔法，沿2.75格直线造成170%攻击伤害，击退0.75格并定身1秒；冷却9秒。"
+skill_mana_cost = 65
+skill_cooldown_seconds = 9.0
+footprint_tiles = 1
+formation_spacing = 38.0

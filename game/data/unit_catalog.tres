@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="UnitCatalog" load_steps=14 format=3]
+[gd_resource type="Resource" script_class="UnitCatalog" load_steps=32 format=3]
 
 [ext_resource type="Script" path="res://game/data/unit_catalog.gd" id="1_script"]
 [ext_resource type="Resource" path="res://game/data/lumber_machine_definition.tres" id="2_lumber"]
@@ -12,10 +12,28 @@
 [ext_resource type="Resource" path="res://game/data/builder_definition.tres" id="10_builder"]
 [ext_resource type="Resource" path="res://game/data/swordsman_definition.tres" id="11_swordsman"]
 [ext_resource type="Resource" path="res://game/data/confucius_definition.tres" id="12_confucius"]
+[ext_resource type="Resource" path="res://game/data/xuanjia_guard_definition.tres" id="13_xuanjia"]
+[ext_resource type="Resource" path="res://game/data/imperial_spearman_definition.tres" id="14_spearman"]
+[ext_resource type="Resource" path="res://game/data/modao_warrior_definition.tres" id="15_modao"]
+[ext_resource type="Resource" path="res://game/data/guardian_stone_lion_definition.tres" id="16_lion"]
+[ext_resource type="Resource" path="res://game/data/spirit_monkey_fighter_definition.tres" id="17_monkey"]
+[ext_resource type="Resource" path="res://game/data/divine_arm_crossbowman_definition.tres" id="18_heavy_crossbow"]
+[ext_resource type="Resource" path="res://game/data/repeating_crossbowman_definition.tres" id="19_repeating_crossbow"]
+[ext_resource type="Resource" path="res://game/data/thunder_gunner_definition.tres" id="20_gunner"]
+[ext_resource type="Resource" path="res://game/data/fire_pot_thrower_definition.tres" id="21_fire_pot"]
+[ext_resource type="Resource" path="res://game/data/hawk_scout_definition.tres" id="22_hawk"]
+[ext_resource type="Resource" path="res://game/data/talisman_acolyte_definition.tres" id="23_talisman"]
+[ext_resource type="Resource" path="res://game/data/five_thunder_mage_definition.tres" id="24_thunder_mage"]
+[ext_resource type="Resource" path="res://game/data/water_mage_definition.tres" id="25_water"]
+[ext_resource type="Resource" path="res://game/data/paper_puppeteer_definition.tres" id="26_paper"]
+[ext_resource type="Resource" path="res://game/data/wandering_healer_definition.tres" id="27_healer"]
+[ext_resource type="Resource" path="res://game/data/war_drummer_definition.tres" id="28_drummer"]
+[ext_resource type="Resource" path="res://game/data/banner_bearer_definition.tres" id="29_banner"]
+[ext_resource type="Resource" path="res://game/data/cleansing_musician_definition.tres" id="30_musician"]
 
 [resource]
 script = ExtResource("1_script")
-definitions = Array[ExtResource("5_definition")]([ExtResource("2_lumber"), ExtResource("3_quarry"), ExtResource("9_explorer"), ExtResource("10_builder"), ExtResource("4_treant"), ExtResource("6_rare"), ExtResource("7_epic"), ExtResource("8_legendary"), ExtResource("11_swordsman"), ExtResource("12_confucius")])
+definitions = Array[ExtResource("5_definition")]([ExtResource("2_lumber"), ExtResource("3_quarry"), ExtResource("9_explorer"), ExtResource("10_builder"), ExtResource("4_treant"), ExtResource("6_rare"), ExtResource("7_epic"), ExtResource("8_legendary"), ExtResource("11_swordsman"), ExtResource("12_confucius"), ExtResource("13_xuanjia"), ExtResource("14_spearman"), ExtResource("15_modao"), ExtResource("16_lion"), ExtResource("17_monkey"), ExtResource("18_heavy_crossbow"), ExtResource("19_repeating_crossbow"), ExtResource("20_gunner"), ExtResource("21_fire_pot"), ExtResource("22_hawk"), ExtResource("23_talisman"), ExtResource("24_thunder_mage"), ExtResource("25_water"), ExtResource("26_paper"), ExtResource("27_healer"), ExtResource("28_drummer"), ExtResource("29_banner"), ExtResource("30_musician")])
 recruitment_pool = Array[ExtResource("5_definition")]([ExtResource("2_lumber"), ExtResource("3_quarry"), ExtResource("9_explorer"), ExtResource("10_builder")])
-summon_pool = Array[ExtResource("5_definition")]([ExtResource("4_treant"), ExtResource("6_rare"), ExtResource("7_epic"), ExtResource("8_legendary"), ExtResource("11_swordsman")])
+summon_pool = Array[ExtResource("5_definition")]([ExtResource("4_treant"), ExtResource("6_rare"), ExtResource("7_epic"), ExtResource("8_legendary"), ExtResource("11_swordsman"), ExtResource("13_xuanjia"), ExtResource("14_spearman"), ExtResource("15_modao"), ExtResource("16_lion"), ExtResource("17_monkey"), ExtResource("18_heavy_crossbow"), ExtResource("19_repeating_crossbow"), ExtResource("20_gunner"), ExtResource("21_fire_pot"), ExtResource("22_hawk"), ExtResource("23_talisman"), ExtResource("24_thunder_mage"), ExtResource("25_water"), ExtResource("26_paper"), ExtResource("27_healer"), ExtResource("28_drummer"), ExtResource("29_banner"), ExtResource("30_musician")])
 hero_pool = Array[ExtResource("5_definition")]([ExtResource("12_confucius")])

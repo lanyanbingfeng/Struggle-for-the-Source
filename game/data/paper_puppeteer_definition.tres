@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="UnitDefinition" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://game/data/unit_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://game/units/paper_puppeteer_unit.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://game/data/skills/paper_substitute_armor.tres" id="3_skill"]
+[ext_resource type="Texture2D" path="res://art/ui/cards/card_paper_puppeteer_art.png" id="4_card"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/paper_puppeteer_attack_frames.tres" id="5_attack"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = &"paper_puppeteer"
+display_name = "纸傀儡师"
+category = 1
+rarity = 0
+scene = ExtResource("2_scene")
+attack_vfx_placement = 1
+combat_skill = ExtResource("3_skill")
+card_texture = ExtResource("4_card")
+attack_vfx_frames = ExtResource("5_attack")
+role_name = "单次减伤"
+description = "用纸甲替受伤友军承受下一次致命冲击。"
+max_health = 150
+attack = 30
+defense = 8
+attack_interval_seconds = 1.4
+attack_range_tiles = 4.5
+chase_range_tiles = 8
+evasion_chance = 0.1
+vision_radius_tiles = 7.0
+movement_speed = 102.0
+max_mana = 100
+mana_regen_per_second = 6
+skill_id = &"paper_substitute_armor"
+skill_name = "替身纸甲"
+skill_description = "消耗70魔法，保护低于65%生命的友军，5秒内下一次实际伤害降低75%；冷却11秒。"
+skill_mana_cost = 70
+skill_cooldown_seconds = 11.0
+footprint_tiles = 1
+formation_spacing = 36.0

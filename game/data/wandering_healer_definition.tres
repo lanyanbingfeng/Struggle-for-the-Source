@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="UnitDefinition" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://game/data/unit_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://game/units/wandering_healer_unit.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://game/data/skills/rejuvenating_powder.tres" id="3_skill"]
+[ext_resource type="Texture2D" path="res://art/ui/cards/card_wandering_healer_art.png" id="4_card"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/wandering_healer_attack_frames.tres" id="5_attack"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = &"wandering_healer"
+display_name = "游方药师"
+category = 1
+rarity = 0
+scene = ExtResource("2_scene")
+attack_vfx_placement = 1
+combat_skill = ExtResource("3_skill")
+card_texture = ExtResource("4_card")
+attack_vfx_frames = ExtResource("5_attack")
+role_name = "单体急救"
+description = "游历四方的药师，擅长急救并清除持续性负面效果。"
+max_health = 155
+attack = 28
+defense = 8
+attack_interval_seconds = 1.6
+attack_range_tiles = 4.25
+chase_range_tiles = 8
+evasion_chance = 0.1
+vision_radius_tiles = 7.0
+movement_speed = 106.0
+max_mana = 100
+mana_regen_per_second = 7.5
+skill_id = &"rejuvenating_powder"
+skill_name = "回春散"
+skill_description = "消耗60魔法，治疗最低生命友军22%最大生命，并清除灼烧、减速和破甲；冷却8秒。"
+skill_mana_cost = 60
+skill_cooldown_seconds = 8.0
+footprint_tiles = 1
+formation_spacing = 36.0

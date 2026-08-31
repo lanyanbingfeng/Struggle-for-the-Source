@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="UnitDefinition" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://game/data/unit_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://game/units/spirit_monkey_fighter_unit.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://game/data/skills/cloudstep_combo.tres" id="3_skill"]
+[ext_resource type="Texture2D" path="res://art/ui/cards/card_spirit_monkey_fighter_art.png" id="4_card"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/spirit_monkey_fighter_attack_frames.tres" id="5_attack"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = &"spirit_monkey_fighter"
+display_name = "灵猴拳师"
+category = 1
+rarity = 0
+scene = ExtResource("2_scene")
+attack_vfx_placement = 0
+combat_skill = ExtResource("3_skill")
+card_texture = ExtResource("4_card")
+attack_vfx_frames = ExtResource("5_attack")
+role_name = "追击刺客"
+description = "敏捷的灵猴拳师，专门追击已经负伤的敌人。"
+max_health = 145
+attack = 36
+defense = 6
+attack_interval_seconds = 0.85
+attack_range_tiles = 1.2
+chase_range_tiles = 8
+evasion_chance = 0.25
+vision_radius_tiles = 7.0
+movement_speed = 145.0
+max_mana = 100
+mana_regen_per_second = 8
+skill_id = &"cloudstep_combo"
+skill_name = "踏云连击"
+skill_description = "消耗70魔法，突进至4.5格内低于65%生命的敌人身边，三拳合计造成210%攻击伤害；冷却9秒。"
+skill_mana_cost = 70
+skill_cooldown_seconds = 9.0
+footprint_tiles = 1
+formation_spacing = 36.0

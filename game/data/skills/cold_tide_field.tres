@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CombatSkillDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/data/combat_skill_definition.gd" id="1_script"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/water_mage_skill_cold_tide_field_frames.tres" id="2_vfx"]
+
+[resource]
+script = ExtResource("1_script")
+vfx_frames = ExtResource("2_vfx")
+skill_id = &"cold_tide_field"
+display_name = "寒潮阵"
+target_mode = 5
+shape = 2
+vfx_placement = 3
+mana_cost = 65
+cooldown_seconds = 9.0
+cast_range_tiles = 5.0
+radius_tiles = 2.5
+damage_multiplier = 0.9
+effect_duration_seconds = 4.0
+movement_slow_ratio = 0.4
+attack_interval_increase_ratio = 0.25

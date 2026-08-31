@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="UnitDefinition" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://game/data/unit_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://game/units/water_mage_unit.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://game/data/skills/cold_tide_field.tres" id="3_skill"]
+[ext_resource type="Texture2D" path="res://art/ui/cards/card_water_mage_art.png" id="4_card"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/water_mage_attack_frames.tres" id="5_attack"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = &"water_mage"
+display_name = "水行术士"
+category = 1
+rarity = 0
+scene = ExtResource("2_scene")
+attack_vfx_placement = 1
+combat_skill = ExtResource("3_skill")
+card_texture = ExtResource("4_card")
+attack_vfx_frames = ExtResource("5_attack")
+role_name = "群体减速"
+description = "操控寒潮削弱敌群的移动与攻击节奏。"
+max_health = 155
+attack = 36
+defense = 8
+attack_interval_seconds = 1.35
+attack_range_tiles = 4.75
+chase_range_tiles = 8
+evasion_chance = 0.08
+vision_radius_tiles = 7.0
+movement_speed = 100.0
+max_mana = 100
+mana_regen_per_second = 7
+skill_id = &"cold_tide_field"
+skill_name = "寒潮阵"
+skill_description = "消耗65魔法，2.5格范围造成90%攻击伤害，降低40%移速并增加25%攻击间隔4秒；冷却9秒。"
+skill_mana_cost = 65
+skill_cooldown_seconds = 9.0
+footprint_tiles = 1
+formation_spacing = 36.0

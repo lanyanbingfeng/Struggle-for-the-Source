@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="UnitDefinition" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://game/data/unit_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://game/units/xuanjia_guard_unit.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://game/data/skills/iron_wall_stance.tres" id="3_skill"]
+[ext_resource type="Texture2D" path="res://art/ui/cards/card_xuanjia_guard_art.png" id="4_card"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/xuanjia_guard_attack_frames.tres" id="5_attack"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = &"xuanjia_guard"
+display_name = "玄甲盾卫"
+category = 1
+rarity = 0
+scene = ExtResource("2_scene")
+attack_vfx_placement = 0
+combat_skill = ExtResource("3_skill")
+card_texture = ExtResource("4_card")
+attack_vfx_frames = ExtResource("5_attack")
+role_name = "保护坦克"
+description = "玄甲重步兵，以厚重盾阵保护友军并吸引敌方火力。"
+max_health = 260
+attack = 34
+defense = 34
+attack_interval_seconds = 1.6
+attack_range_tiles = 1.2
+chase_range_tiles = 6.5
+evasion_chance = 0
+vision_radius_tiles = 7.0
+movement_speed = 88.0
+max_mana = 100
+mana_regen_per_second = 6
+skill_id = &"iron_wall_stance"
+skill_name = "铁壁架势"
+skill_description = "消耗60魔法，自身获得24防御4秒，并吸引2.25格内敌人的自动目标2.5秒；冷却10秒。"
+skill_mana_cost = 60
+skill_cooldown_seconds = 10.0
+footprint_tiles = 1
+formation_spacing = 42.0

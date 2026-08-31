@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CombatSkillDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/data/combat_skill_definition.gd" id="1_script"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/banner_bearer_skill_battle_banner_frames.tres" id="2_vfx"]
+
+[resource]
+script = ExtResource("1_script")
+vfx_frames = ExtResource("2_vfx")
+skill_id = &"battle_banner"
+display_name = "定军令"
+target_mode = 7
+shape = 1
+vfx_placement = 2
+mana_cost = 70
+cooldown_seconds = 10.0
+cast_range_tiles = 5.0
+radius_tiles = 3.5
+defense_modifier = 16.0
+effect_duration_seconds = 5.0
+control_duration_reduction_ratio = 0.35

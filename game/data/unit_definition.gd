@@ -3,6 +3,7 @@ extends Resource
 
 enum Category { WORKER, COMBAT, HERO }
 enum Rarity { COMMON, UNCOMMON, RARE, EPIC, LEGENDARY }
+enum AttackVfxPlacement { CASTER_FORWARD, TARGET_CENTER }
 
 @export var unit_id: StringName = &"unit"
 @export var display_name: String = "单位"
@@ -10,6 +11,9 @@ enum Rarity { COMMON, UNCOMMON, RARE, EPIC, LEGENDARY }
 @export var rarity: Rarity = Rarity.COMMON
 @export var scene: PackedScene
 @export var card_texture: Texture2D
+@export var attack_vfx_frames: SpriteFrames
+@export var attack_vfx_placement: AttackVfxPlacement = AttackVfxPlacement.CASTER_FORWARD
+@export var combat_skill: CombatSkillDefinition
 @export var role_name: String = "单位"
 @export_multiline var description: String = ""
 @export_range(1, 10000, 1) var max_health: int = 100

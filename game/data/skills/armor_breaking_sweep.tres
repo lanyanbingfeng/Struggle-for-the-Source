@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CombatSkillDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/data/combat_skill_definition.gd" id="1_script"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/modao_warrior_skill_armor_breaking_sweep_frames.tres" id="2_vfx"]
+
+[resource]
+script = ExtResource("1_script")
+vfx_frames = ExtResource("2_vfx")
+skill_id = &"armor_breaking_sweep"
+display_name = "破阵横斩"
+target_mode = 1
+shape = 4
+vfx_placement = 0
+mana_cost = 70
+cooldown_seconds = 9.0
+cast_range_tiles = 2.25
+cone_angle_degrees = 180.0
+damage_multiplier = 1.5
+defense_modifier = -12.0
+effect_duration_seconds = 5.0

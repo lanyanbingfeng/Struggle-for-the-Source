@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="UnitDefinition" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://game/data/unit_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://game/units/war_drummer_unit.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://game/data/skills/war_drum.tres" id="3_skill"]
+[ext_resource type="Texture2D" path="res://art/ui/cards/card_war_drummer_art.png" id="4_card"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/war_drummer_attack_frames.tres" id="5_attack"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = &"war_drummer"
+display_name = "战鼓手"
+category = 1
+rarity = 0
+scene = ExtResource("2_scene")
+attack_vfx_placement = 0
+combat_skill = ExtResource("3_skill")
+card_texture = ExtResource("4_card")
+attack_vfx_frames = ExtResource("5_attack")
+role_name = "进攻增益"
+description = "以战鼓振奋附近友军，提高攻击和行军速度。"
+max_health = 175
+attack = 30
+defense = 12
+attack_interval_seconds = 1.5
+attack_range_tiles = 1.2
+chase_range_tiles = 6.5
+evasion_chance = 0.05
+vision_radius_tiles = 7.0
+movement_speed = 100.0
+max_mana = 100
+mana_regen_per_second = 7
+skill_id = &"war_drum"
+skill_name = "破阵鼓"
+skill_description = "消耗70魔法，使3.5格友军攻击提高18%、移速提高15%，持续5秒；冷却10秒。"
+skill_mana_cost = 70
+skill_cooldown_seconds = 10.0
+footprint_tiles = 1
+formation_spacing = 40.0

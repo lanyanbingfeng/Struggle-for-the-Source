@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="UnitDefinition" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://game/data/unit_definition.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://game/units/five_thunder_mage_unit.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://game/data/skills/chain_lightning.tres" id="3_skill"]
+[ext_resource type="Texture2D" path="res://art/ui/cards/card_five_thunder_mage_art.png" id="4_card"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/five_thunder_mage_attack_frames.tres" id="5_attack"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = &"five_thunder_mage"
+display_name = "五雷术士"
+category = 1
+rarity = 0
+scene = ExtResource("2_scene")
+attack_vfx_placement = 1
+combat_skill = ExtResource("3_skill")
+card_texture = ExtResource("4_card")
+attack_vfx_frames = ExtResource("5_attack")
+role_name = "连锁法伤"
+description = "引导雷霆在紧密排列的敌人之间连续跳跃。"
+max_health = 125
+attack = 52
+defense = 3
+attack_interval_seconds = 1.7
+attack_range_tiles = 5.5
+chase_range_tiles = 8
+evasion_chance = 0.05
+vision_radius_tiles = 7.0
+movement_speed = 96.0
+max_mana = 100
+mana_regen_per_second = 6
+skill_id = &"chain_lightning"
+skill_name = "五雷连引"
+skill_description = "消耗75魔法，在2.25格跳跃距离内连锁至多4名敌人，每名受到120%攻击伤害；冷却10秒。"
+skill_mana_cost = 75
+skill_cooldown_seconds = 10.0
+footprint_tiles = 1
+formation_spacing = 36.0

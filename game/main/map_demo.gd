@@ -55,7 +55,7 @@ const RICH_TREE_BONUS_CELLS: Array[Vector2i] = [
 	Vector2i(11, 6), Vector2i(7, 10), Vector2i(13, 13), Vector2i(7, 15),
 ]
 const RICH_STONE_BONUS_CELLS: Array[Vector2i] = [
-	Vector2i(7, 5), Vector2i(12, 9), Vector2i(7, 13), Vector2i(15, 15),
+	Vector2i(7, 5), Vector2i(12, 9), Vector2i(7, 13), Vector2i(16, 15),
 ]
 const RESOURCE_SCARCE: int = 0
 const RESOURCE_STANDARD: int = 1
@@ -527,6 +527,7 @@ func _build_rare_mineral_layout(tree_cells: Array[Vector2i], stone_cells: Array[
 	var occupied: Dictionary = {}
 	for cell: Vector2i in tree_cells:
 		occupied[cell] = true
+		occupied[cell + Vector2i.UP] = true
 	for cell: Vector2i in stone_cells:
 		occupied[cell] = true
 	for y: int in range(8, 13):
@@ -829,6 +830,7 @@ func _server_spawn_unit(owner_peer_id: int, unit_definition_id: StringName, pref
 		"owner_peer_id": owner_peer_id,
 		"territory_id": territory_id,
 		"position": _unit_spawn_position(territory_id, sequence),
+		"star_level": 1,
 		"hero_level": 1,
 		"skill_levels": {},
 	}
@@ -837,6 +839,8 @@ func _server_spawn_unit(owner_peer_id: int, unit_definition_id: StringName, pref
 	_spawn_network_unit(spawn_data)
 	if _multiplayer_mode:
 		_rpc_spawn_unit.rpc(spawn_data)
+	if definition.category == UnitDefinition.Category.COMBAT:
+		_resolve_forced_combat_unit_fusions(owner_peer_id, unit_definition_id)
 	return true
 
 @rpc("authority", "call_remote", "reliable")
@@ -861,6 +865,7 @@ func _spawn_network_unit(spawn_data: Dictionary) -> void:
 	unit.set("unit_id", network_unit_id)
 	unit.set("owner_peer_id", owner_peer_id)
 	unit.set("definition", definition)
+	var combat_unit: TreantUnit = unit as TreantUnit
 	if definition.category == UnitDefinition.Category.COMBAT or definition.category == UnitDefinition.Category.HERO or definition.unit_id in [&"explorer", &"builder"]:
 		unit.call(&"configure_network", network_unit_id, owner_peer_id, territory_id, definition, _has_gameplay_authority())
 		if unit.has_method(&"setup_navigation"):
@@ -869,14 +874,20 @@ func _spawn_network_unit(spawn_data: Dictionary) -> void:
 		unit.call(&"configure_network", network_unit_id, owner_peer_id, definition)
 		var resource_container: Node2D = tree_container if definition.unit_id == &"lumber" else mineable_container
 		unit.call(&"setup", resource_container, territory_id, _has_gameplay_authority(), world_pathfinder.find_path)
+	if definition.category == UnitDefinition.Category.COMBAT and combat_unit != null:
+		combat_unit.set_star_level(int(spawn_data.get("star_level", 1)))
 	_apply_unit_faction_tint(unit, owner_peer_id)
 	_network_units[network_unit_id] = unit
+	var unit_max_health: float = float(definition.max_health)
+	var unit_defense: float = float(definition.defense)
+	if definition.category == UnitDefinition.Category.COMBAT and combat_unit != null:
+		unit_max_health = combat_unit.get_effective_max_health()
+		unit_defense = combat_unit.get_effective_defense()
 	_attach_vitals(
-		unit, owner_peer_id, float(definition.max_health), float(definition.defense), definition.evasion_chance,
+		unit, owner_peer_id, unit_max_health, unit_defense, definition.evasion_chance,
 		float(definition.max_mana), definition.mana_regen_per_second, Vector2(0.0, -24.0), 30.0, &"unit", network_unit_id
 	)
 	if definition.category == UnitDefinition.Category.COMBAT or definition.category == UnitDefinition.Category.HERO:
-		var combat_unit: TreantUnit = unit as TreantUnit
 		if combat_unit != null:
 			if definition.category == UnitDefinition.Category.HERO and combat_unit.has_method(&"set_hero_progression"):
 				combat_unit.call(&"set_hero_progression", int(spawn_data.get("hero_level", 1)), spawn_data.get("skill_levels", {}) as Dictionary)
@@ -888,6 +899,82 @@ func _spawn_network_unit(spawn_data: Dictionary) -> void:
 			)
 			combat_unit.attack_visual_requested.connect(_on_unit_attack_visual_requested)
 			combat_unit.skill_visual_requested.connect(_on_unit_skill_visual_requested)
+
+func _resolve_forced_combat_unit_fusions(owner_peer_id: int, definition_id: StringName) -> void:
+	if not _has_gameplay_authority():
+		return
+	var definition: UnitDefinition = UNIT_CATALOG.get_definition(definition_id)
+	if definition == null or definition.category != UnitDefinition.Category.COMBAT:
+		return
+	while true:
+		var fusion_star_level: int = 0
+		var candidates: Array[TreantUnit] = []
+		for candidate_star_level: int in range(1, TreantUnit.MAX_STAR_LEVEL):
+			candidates.clear()
+			for unit: Node2D in _network_units.values():
+				var combat_candidate: TreantUnit = unit as TreantUnit
+				if not is_instance_valid(combat_candidate):
+					continue
+				if combat_candidate.owner_peer_id != owner_peer_id or combat_candidate.definition != definition:
+					continue
+				if combat_candidate.star_level == candidate_star_level:
+					candidates.append(combat_candidate)
+			if candidates.size() >= 3:
+				fusion_star_level = candidate_star_level
+				break
+		if fusion_star_level <= 0:
+			return
+		candidates.sort_custom(_sort_combat_units_by_id)
+		var survivor: TreantUnit = candidates[0]
+		var consumed_ids: PackedInt32Array = PackedInt32Array([candidates[1].unit_id, candidates[2].unit_id])
+		var merged_health: float = 0.0
+		var merged_mana: float = 0.0
+		for source_index: int in 3:
+			var source_health: HealthComponent = candidates[source_index].get_node_or_null("HealthComponent") as HealthComponent
+			if is_instance_valid(source_health):
+				merged_health += source_health.current_health
+				merged_mana += source_health.current_mana
+		var new_star_level: int = fusion_star_level + 1
+		_apply_combat_unit_fusion(survivor.unit_id, consumed_ids, new_star_level, merged_health, merged_mana)
+		if _multiplayer_mode:
+			_rpc_apply_combat_unit_fusion.rpc(survivor.unit_id, consumed_ids, new_star_level, merged_health, merged_mana)
+		_notify_peer(owner_peer_id, "%s已强制融合为%d星" % [definition.display_name, new_star_level])
+
+func _sort_combat_units_by_id(first: TreantUnit, second: TreantUnit) -> bool:
+	return first.unit_id < second.unit_id
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_apply_combat_unit_fusion(
+	survivor_id: int,
+	consumed_ids: PackedInt32Array,
+	new_star_level: int,
+	merged_health: float,
+	merged_mana: float
+) -> void:
+	_apply_combat_unit_fusion(survivor_id, consumed_ids, new_star_level, merged_health, merged_mana)
+
+func _apply_combat_unit_fusion(
+	survivor_id: int,
+	consumed_ids: PackedInt32Array,
+	new_star_level: int,
+	merged_health: float,
+	merged_mana: float
+) -> void:
+	var survivor: TreantUnit = _network_units.get(survivor_id) as TreantUnit
+	if not is_instance_valid(survivor) or survivor.definition == null or survivor.definition.category != UnitDefinition.Category.COMBAT:
+		return
+	var retain_selection: bool = _selected_unit_ids.has(survivor_id)
+	for consumed_id: int in consumed_ids:
+		retain_selection = retain_selection or _selected_unit_ids.has(consumed_id)
+		_remove_damageable(&"unit", consumed_id)
+	survivor.set_star_level(new_star_level)
+	var health: HealthComponent = survivor.get_node_or_null("HealthComponent") as HealthComponent
+	if is_instance_valid(health):
+		health.apply_network_state(merged_health, merged_mana)
+	if retain_selection and not _selected_unit_ids.has(survivor_id):
+		_selected_unit_ids.append(survivor_id)
+	_refresh_unit_command_panel()
+	_play_upgrade_visual(UPGRADE_TARGET_UNIT, survivor_id)
 
 func _on_unit_attack_visual_requested(network_unit_id: int, target_position: Vector2) -> void:
 	if not _has_gameplay_authority() or not _multiplayer_mode:
@@ -1681,6 +1768,9 @@ func _broadcast_unit_states() -> void:
 			state["target"] = unit.get("move_target")
 			state["moving"] = bool(unit.get("has_move_target"))
 			state["construction_busy"] = bool(unit.get_meta(&"construction_busy", false))
+			if unit is TreantUnit:
+				state["star_level"] = (unit as TreantUnit).star_level
+				state["combat_status"] = (unit as TreantUnit).get_combat_status_network_state()
 		else:
 			state["working"] = bool(unit.call(&"is_working"))
 			state["work_enabled"] = bool(unit.get("work_enabled"))
@@ -1730,6 +1820,11 @@ func _rpc_apply_unit_states(states: Array) -> void:
 			continue
 		if unit is TreantUnit or unit is ExplorerUnit:
 			unit.call(&"apply_network_state", state.get("position", unit.global_position), state.get("target", unit.global_position), bool(state.get("moving", false)))
+			if unit is TreantUnit:
+				var combat_unit: TreantUnit = unit as TreantUnit
+				if combat_unit.definition != null and combat_unit.definition.category == UnitDefinition.Category.COMBAT:
+					combat_unit.set_star_level(int(state.get("star_level", combat_unit.star_level)))
+				combat_unit.apply_combat_status_network_state(state.get("combat_status", {}) as Dictionary)
 			if unit.has_method(&"set_construction_busy"):
 				var busy: bool = bool(state.get("construction_busy", false))
 				if busy != bool(unit.get_meta(&"construction_busy", false)):
@@ -1767,7 +1862,11 @@ func _refresh_fog() -> void:
 		if int(_territory_owner_by_id[territory_id]) == _local_peer_id and territory_id > 0 and territory_id <= _territory_rects.size():
 			owned_rects.append(_territory_rects[territory_id - 1])
 	for unit: Node2D in _network_units.values():
-		if not is_instance_valid(unit) or int(unit.get("owner_peer_id")) != _local_peer_id:
+		if not is_instance_valid(unit):
+			continue
+		if int(unit.get("owner_peer_id")) != _local_peer_id:
+			if unit.has_method(&"is_revealed_to_peer") and bool(unit.call(&"is_revealed_to_peer", _local_peer_id)):
+				sources.append({"position": unit.global_position, "radius": 1.5 * float(TILE_SIZE)})
 			continue
 		if bool(unit.get_meta(&"construction_busy", false)):
 			continue
@@ -3285,6 +3384,13 @@ func _is_world_position_visible_to_peer(world_position: Vector2, peer_id: int) -
 		var radius: float = float(unit.call(&"get_vision_radius_world", TILE_SIZE))
 		if unit.global_position.distance_squared_to(cell_center) <= radius * radius:
 			return true
+	for unit: Node2D in _network_units.values():
+		if not is_instance_valid(unit) or int(unit.get("owner_peer_id")) == peer_id:
+			continue
+		if unit.has_method(&"is_revealed_to_peer") and bool(unit.call(&"is_revealed_to_peer", peer_id)):
+			var reveal_radius: float = 1.5 * float(TILE_SIZE)
+			if unit.global_position.distance_squared_to(cell_center) <= reveal_radius * reveal_radius:
+				return true
 	return false
 
 func _ai_try_claim_summon() -> bool:

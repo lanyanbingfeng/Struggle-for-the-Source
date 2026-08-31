@@ -55,6 +55,11 @@
 - [左上角进度资源独立图标](memory/2026-08-30-resource-hud-progress-icons.md)
 - [共享单位与建筑升级特效](memory/2026-08-30-shared-upgrade-vfx.md)
 - [升级特效尺寸与裁切修复](memory/2026-08-30-upgrade-vfx-size-clipping-fix.md)
+- [树人坦度削弱](memory/2026-08-30-treant-toughness-nerf.md)
+- [战斗单位强制升星与品质修正](memory/2026-08-30-combat-unit-star-fusion-rarity.md)
+- [树木两格资源占用重叠修复](memory/2026-08-31-tree-footprint-resource-overlap-fix.md)
+- [十八种白色战斗单位与完整特效资源](memory/2026-08-31-white-combat-unit-roster.md)
+- [白色战斗单位特效显示缩放](memory/2026-08-31-white-unit-vfx-display-scale.md)
 
 ## 维护规则
 

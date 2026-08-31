@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CombatSkillDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/data/combat_skill_definition.gd" id="1_script"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/fire_pot_thrower_skill_ground_fire_pot_frames.tres" id="2_vfx"]
+
+[resource]
+script = ExtResource("1_script")
+vfx_frames = ExtResource("2_vfx")
+skill_id = &"ground_fire_pot"
+display_name = "地火罐"
+target_mode = 5
+shape = 2
+vfx_placement = 3
+mana_cost = 75
+cooldown_seconds = 11.0
+cast_range_tiles = 4.5
+radius_tiles = 2.25
+damage_multiplier = 0.9
+dot_damage_multiplier = 0.35
+dot_duration_seconds = 4.0
+dot_interval_seconds = 1.0

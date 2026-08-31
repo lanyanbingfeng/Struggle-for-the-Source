@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CombatSkillDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/data/combat_skill_definition.gd" id="1_script"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/paper_puppeteer_skill_paper_substitute_armor_frames.tres" id="2_vfx"]
+
+[resource]
+script = ExtResource("1_script")
+vfx_frames = ExtResource("2_vfx")
+skill_id = &"paper_substitute_armor"
+display_name = "替身纸甲"
+target_mode = 6
+shape = 0
+vfx_placement = 1
+mana_cost = 70
+cooldown_seconds = 11.0
+cast_range_tiles = 5.0
+radius_tiles = 5.0
+effect_duration_seconds = 5.0
+trigger_health_ratio = 0.65
+next_hit_reduction_ratio = 0.75

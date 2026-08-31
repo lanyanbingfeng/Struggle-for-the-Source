@@ -331,9 +331,22 @@ func _run() -> void:
 	var photosynthesis_vfx: AnimatedSprite2D = treant.get_node_or_null("SkillVfx") as AnimatedSprite2D
 	_expect(is_instance_valid(photosynthesis_vfx) and photosynthesis_vfx.is_playing(), "树人光合作用没有播放绿色范围序列帧")
 	var treant_ids: Array[StringName] = [&"treant", &"ironbark_treant", &"ancient_treant", &"worldroot_guardian"]
+	var expected_treant_stats: Dictionary = {
+		&"treant": Vector2i(280, 40),
+		&"ironbark_treant": Vector2i(360, 48),
+		&"ancient_treant": Vector2i(500, 60),
+		&"worldroot_guardian": Vector2i(700, 80),
+	}
 	for treant_id: StringName in treant_ids:
 		var tier_definition: UnitDefinition = UNIT_CATALOG.get_definition(treant_id)
 		_expect(tier_definition != null and is_equal_approx(tier_definition.skill_heal_percent, 0.1), "%s光合作用不是10%%范围治疗" % treant_id)
+		var expected_stats: Vector2i = expected_treant_stats.get(treant_id, Vector2i.ZERO) as Vector2i
+		_expect(
+			tier_definition != null
+				and tier_definition.max_health == expected_stats.x
+				and tier_definition.defense == expected_stats.y,
+			"%s树人坦度属性没有应用当前削弱" % treant_id
+		)
 
 	# Builder previews a 2x2 building, nudges it by one tile, walks there, then disappears during construction.
 	var coin_definition := BUILDING_CATALOG.get_definition(&"coin_table")

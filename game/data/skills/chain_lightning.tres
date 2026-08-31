@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CombatSkillDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/data/combat_skill_definition.gd" id="1_script"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/five_thunder_mage_skill_chain_lightning_frames.tres" id="2_vfx"]
+
+[resource]
+script = ExtResource("1_script")
+vfx_frames = ExtResource("2_vfx")
+skill_id = &"chain_lightning"
+display_name = "五雷连引"
+target_mode = 1
+shape = 5
+vfx_placement = 1
+mana_cost = 75
+cooldown_seconds = 10.0
+cast_range_tiles = 5.5
+chain_range_tiles = 2.25
+max_targets = 4
+damage_multiplier = 1.2

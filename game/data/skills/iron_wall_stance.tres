@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CombatSkillDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/data/combat_skill_definition.gd" id="1_script"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/xuanjia_guard_skill_iron_wall_stance_frames.tres" id="2_vfx"]
+
+[resource]
+script = ExtResource("1_script")
+vfx_frames = ExtResource("2_vfx")
+skill_id = &"iron_wall_stance"
+display_name = "铁壁架势"
+target_mode = 0
+shape = 1
+vfx_placement = 2
+mana_cost = 60
+cooldown_seconds = 10.0
+cast_range_tiles = 2.25
+radius_tiles = 2.25
+defense_modifier = 24.0
+effect_duration_seconds = 4.0
+taunt_duration_seconds = 2.5

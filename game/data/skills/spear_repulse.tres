@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CombatSkillDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/data/combat_skill_definition.gd" id="1_script"]
+[ext_resource type="SpriteFrames" path="res://game/units/vfx/imperial_spearman_skill_spear_repulse_frames.tres" id="2_vfx"]
+
+[resource]
+script = ExtResource("1_script")
+vfx_frames = ExtResource("2_vfx")
+skill_id = &"spear_repulse"
+display_name = "拒马突刺"
+target_mode = 1
+shape = 3
+vfx_placement = 0
+mana_cost = 65
+cooldown_seconds = 9.0
+cast_range_tiles = 2.75
+line_width_tiles = 0.75
+damage_multiplier = 1.7
+control_type = 1
+control_duration_seconds = 1.0
+knockback_tiles = 0.75

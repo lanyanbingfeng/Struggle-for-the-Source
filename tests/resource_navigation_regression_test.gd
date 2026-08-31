@@ -16,12 +16,37 @@ func _ready() -> void:
 
 func _run() -> void:
 	_test_percentage_harvest_progress()
+	_test_streamed_tree_footprint_occupancy()
 	_test_astar_shortest_routes()
 	_test_worker_nearest_resource_selection()
 	_test_moving_unit_collision_layers()
 	await _test_map_worker_navigation_integration()
 	await get_tree().process_frame
 	_finish()
+
+func _test_streamed_tree_footprint_occupancy() -> void:
+	var streamer: WorldResourceStreamer = WorldResourceStreamer.new()
+	var tree_container: Node2D = Node2D.new()
+	var stone_container: Node2D = Node2D.new()
+	var mineral_container: Node2D = Node2D.new()
+	streamer.configure(64, TILE_SIZE, tree_container, stone_container, mineral_container)
+	var tree_cell: Vector2i = Vector2i(8, 8)
+	var tree_upper_cell: Vector2i = tree_cell + Vector2i.UP
+	_expect(bool(streamer.call(&"_try_store_resource", &"tree", tree_cell)), "流送器没有接受空地上的两格树木")
+	_expect(not bool(streamer.call(&"_try_store_resource", &"stone", tree_upper_cell)), "树木上格仍允许生成石头")
+	_expect(not bool(streamer.call(&"_try_store_resource", &"iron", tree_cell)), "树木根部格仍允许生成矿物")
+	var occupied_cells: Dictionary = streamer.get("_occupied_cells") as Dictionary
+	_expect(occupied_cells.has(tree_cell) and occupied_cells.has(tree_upper_cell), "两格树木没有完整登记根部格和上格")
+	var claimed_tree: Dictionary = streamer.claim_resource_by_id(1, &"tree")
+	_expect(not claimed_tree.is_empty(), "测试树木无法从流送器移除")
+	occupied_cells = streamer.get("_occupied_cells") as Dictionary
+	_expect(not occupied_cells.has(tree_cell) and not occupied_cells.has(tree_upper_cell), "树木移除后没有释放完整两格占用")
+	_expect(bool(streamer.call(&"_try_store_resource", &"stone", tree_upper_cell)), "树木移除后上格仍被幽灵占用")
+	_expect(not bool(streamer.call(&"_try_store_resource", &"tree", tree_cell)), "已有资源的下方仍允许生成会与其重叠的树木")
+	streamer.free()
+	tree_container.free()
+	stone_container.free()
+	mineral_container.free()
 
 func _test_percentage_harvest_progress() -> void:
 	var tree: HarvestTree = TREE_SCENE.instantiate() as HarvestTree
@@ -148,6 +173,19 @@ func _test_moving_unit_collision_layers() -> void:
 func _test_map_worker_navigation_integration() -> void:
 	var map: Node2D = MAIN_SCENE.instantiate() as Node2D
 	get_tree().root.add_child(map)
+	for abundance: int in range(3):
+		map.set("_resource_abundance", abundance)
+		var fair_tree_cells: Array[Vector2i] = map.call(&"_get_tree_cells_for_abundance") as Array[Vector2i]
+		var fair_stone_cells: Array[Vector2i] = map.call(&"_get_stone_cells_for_abundance") as Array[Vector2i]
+		var fair_mineral_layout: Array[Dictionary] = map.call(&"_build_rare_mineral_layout", fair_tree_cells, fair_stone_cells) as Array[Dictionary]
+		var fair_other_resource_cells: Dictionary[Vector2i, bool] = {}
+		for stone_cell: Vector2i in fair_stone_cells:
+			fair_other_resource_cells[stone_cell] = true
+		for mineral_data: Dictionary in fair_mineral_layout:
+			fair_other_resource_cells[mineral_data.get("cell", Vector2i.ZERO) as Vector2i] = true
+		for tree_cell: Vector2i in fair_tree_cells:
+			_expect(not fair_other_resource_cells.has(tree_cell), "资源档%d的初始领地仍可能在树木根部格生成其他资源" % abundance)
+			_expect(not fair_other_resource_cells.has(tree_cell + Vector2i.UP), "资源档%d的初始领地仍可能在树木上格生成其他资源" % abundance)
 	map.call(&"_on_start_requested", false)
 	await get_tree().process_frame
 	var ai_controller: SimpleAIController = map.get("ai_controller") as SimpleAIController

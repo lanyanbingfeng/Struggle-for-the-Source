@@ -6,6 +6,7 @@ const CHUNK_SIZE_TILES: int = 32
 const STREAM_RADIUS_CHUNKS: int = 1
 const INVALID_CHUNK: Vector2i = Vector2i(-99999, -99999)
 const RESOURCE_MARKER_SCRIPT: Script = preload("res://game/world/world_resource_marker.gd")
+const TREE_FOOTPRINT_OFFSETS: Array[Vector2i] = [Vector2i.ZERO, Vector2i.UP]
 
 var _map_size_tiles: int = 1000
 var _tile_size: int = 32
@@ -220,9 +221,12 @@ func _add_cluster(resource_type: StringName, center: Vector2i, desired_count: in
 func _try_store_resource(resource_type: StringName, cell: Vector2i) -> bool:
 	if cell.x < 2 or cell.y < 2 or cell.x >= _map_size_tiles - 2 or cell.y >= _map_size_tiles - 2:
 		return false
-	if _occupied_cells.has(cell):
-		return false
-	_occupied_cells[cell] = true
+	var footprint_cells: Array[Vector2i] = _resource_footprint_cells(resource_type, cell)
+	for footprint_cell: Vector2i in footprint_cells:
+		if _occupied_cells.has(footprint_cell):
+			return false
+	for footprint_cell: Vector2i in footprint_cells:
+		_occupied_cells[footprint_cell] = true
 	var chunk: Vector2i = _cell_to_chunk(cell)
 	var resource_id: int = _next_resource_id
 	_next_resource_id += 1
@@ -237,6 +241,15 @@ func _try_store_resource(resource_type: StringName, cell: Vector2i) -> bool:
 	ids.append(resource_id)
 	_resource_ids_by_chunk[chunk] = ids
 	return true
+
+func _resource_footprint_cells(resource_type: StringName, cell: Vector2i) -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	if resource_type == &"tree":
+		for offset: Vector2i in TREE_FOOTPRINT_OFFSETS:
+			cells.append(cell + offset)
+	else:
+		cells.append(cell)
+	return cells
 
 func _load_chunk(chunk: Vector2i) -> void:
 	var resource_ids: Array = _resource_ids_by_chunk.get(chunk, []) as Array
@@ -281,7 +294,9 @@ func _remove_resource_data(resource_id: int) -> void:
 	ids.erase(resource_id)
 	_resource_ids_by_chunk[chunk] = ids
 	var cell: Vector2i = data.get("cell", Vector2i.ZERO) as Vector2i
-	_occupied_cells.erase(cell)
+	var resource_type: StringName = data.get("resource_type", &"tree") as StringName
+	for footprint_cell: Vector2i in _resource_footprint_cells(resource_type, cell):
+		_occupied_cells.erase(footprint_cell)
 	_resource_data_by_id.erase(resource_id)
 
 func _resource_ids_in_rect(rect: Rect2i) -> Array[int]:

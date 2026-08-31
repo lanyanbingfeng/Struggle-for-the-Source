@@ -78,12 +78,16 @@ func configure(
 	_rng.seed = peer_id * 1000003 + int(root.get_instance_id())
 	_emit_state()
 
-func apply_attack(raw_attack: float, source_owner_peer_id: int = 0) -> float:
+func apply_attack(raw_attack: float, source_owner_peer_id: int = 0, defense_ignore_ratio: float = 0.0) -> float:
 	if not _alive:
 		return 0.0
 	if evasion_chance > 0.0 and _rng.randf() < evasion_chance:
 		return 0.0
-	var damage := maxf(1.0, raw_attack - defense)
+	var effective_defense: float = defense * (1.0 - clampf(defense_ignore_ratio, 0.0, 1.0))
+	var damage: float = maxf(1.0, raw_attack - effective_defense)
+	var status: CombatStatusController = target_root.get_node_or_null("CombatStatusController") as CombatStatusController if is_instance_valid(target_root) else null
+	if is_instance_valid(status):
+		damage = status.modify_final_damage(damage)
 	if source_owner_peer_id > 0:
 		last_damage_owner_peer_id = source_owner_peer_id
 	current_health = maxf(0.0, current_health - damage)
@@ -138,6 +142,10 @@ func set_max_health(new_max_health: float, preserve_ratio: bool = true) -> void:
 	current_health = max_health * previous_ratio if preserve_ratio else minf(current_health, max_health)
 	_emit_state()
 
+func set_base_defense(new_base_defense: float) -> void:
+	base_defense = maxf(0.0, new_base_defense)
+	_recalculate_defense()
+
 func apply_temporary_defense_bonus(source_id: StringName, amount: float, duration: float) -> void:
 	if source_id.is_empty() or amount <= 0.0 or duration <= 0.0:
 		return
@@ -145,6 +153,21 @@ func apply_temporary_defense_bonus(source_id: StringName, amount: float, duratio
 	_temporary_defense_durations[source_id] = maxf(duration, float(_temporary_defense_durations.get(source_id, 0.0)))
 	_recalculate_defense()
 	set_process(true)
+
+func apply_temporary_defense_modifier(source_id: StringName, amount: float, duration: float) -> void:
+	if source_id.is_empty() or is_zero_approx(amount) or duration <= 0.0:
+		return
+	_temporary_defense_bonuses[source_id] = amount
+	_temporary_defense_durations[source_id] = maxf(duration, float(_temporary_defense_durations.get(source_id, 0.0)))
+	_recalculate_defense()
+	set_process(true)
+
+func clear_negative_defense_modifiers() -> void:
+	for source_id: StringName in _temporary_defense_bonuses.keys():
+		if _temporary_defense_bonuses[source_id] < 0.0:
+			_temporary_defense_bonuses.erase(source_id)
+			_temporary_defense_durations.erase(source_id)
+	_recalculate_defense()
 
 func get_temporary_defense_bonus(source_id: StringName) -> float:
 	return float(_temporary_defense_bonuses.get(source_id, 0.0))
