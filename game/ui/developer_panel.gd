@@ -4,21 +4,24 @@ extends CanvasLayer
 signal full_vision_changed(enabled: bool)
 signal ai_paused_changed(paused: bool)
 signal infinite_resources_changed(enabled: bool)
+signal test_enemy_spawn_requested(enemy_kind: StringName)
 
 var _toggle: CheckButton
 var _ai_toggle: CheckButton
 var _resources_toggle: CheckButton
+var _boss_spawn_button: Button
+var _elite_spawn_button: Button
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 30
 	var panel: PanelContainer = PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	panel.offset_left = -178.0
+	panel.offset_left = -212.0
 	panel.offset_top = 12.0
 	panel.offset_right = -12.0
-	panel.offset_bottom = 112.0
-	panel.custom_minimum_size = Vector2(184.0, 100.0)
+	panel.offset_bottom = 154.0
+	panel.custom_minimum_size = Vector2(200.0, 142.0)
 	panel.add_theme_stylebox_override("panel", _make_panel_style())
 	add_child(panel)
 	var margin: MarginContainer = MarginContainer.new()
@@ -45,6 +48,29 @@ func _ready() -> void:
 	_resources_toggle.add_theme_font_size_override(&"font_size", 11)
 	_resources_toggle.toggled.connect(_on_resources_toggled)
 	column.add_child(_resources_toggle)
+	var divider: HSeparator = HSeparator.new()
+	column.add_child(divider)
+	var spawn_title: Label = Label.new()
+	spawn_title.text = "选点生成测试敌人"
+	spawn_title.add_theme_font_size_override(&"font_size", 11)
+	column.add_child(spawn_title)
+	var spawn_row: HBoxContainer = HBoxContainer.new()
+	spawn_row.add_theme_constant_override(&"separation", 4)
+	column.add_child(spawn_row)
+	_boss_spawn_button = Button.new()
+	_boss_spawn_button.name = "SpawnBossButton"
+	_boss_spawn_button.text = "生成 BOSS"
+	_boss_spawn_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_boss_spawn_button.add_theme_font_size_override(&"font_size", 11)
+	_boss_spawn_button.pressed.connect(_on_boss_spawn_pressed)
+	spawn_row.add_child(_boss_spawn_button)
+	_elite_spawn_button = Button.new()
+	_elite_spawn_button.name = "SpawnEliteButton"
+	_elite_spawn_button.text = "生成精英"
+	_elite_spawn_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_elite_spawn_button.add_theme_font_size_override(&"font_size", 11)
+	_elite_spawn_button.pressed.connect(_on_elite_spawn_pressed)
+	spawn_row.add_child(_elite_spawn_button)
 	hide()
 
 func reset() -> void:
@@ -63,6 +89,12 @@ func _on_ai_toggled(paused: bool) -> void:
 
 func _on_resources_toggled(enabled: bool) -> void:
 	infinite_resources_changed.emit(enabled)
+
+func _on_boss_spawn_pressed() -> void:
+	test_enemy_spawn_requested.emit(&"boss")
+
+func _on_elite_spawn_pressed() -> void:
+	test_enemy_spawn_requested.emit(&"elite")
 
 func _make_panel_style() -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()

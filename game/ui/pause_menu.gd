@@ -2,6 +2,7 @@ class_name PauseMenu
 extends CanvasLayer
 
 signal return_to_main_menu
+signal exit_requested
 
 var _root: Control
 var _menu_panel: PanelContainer
@@ -240,7 +241,7 @@ func _on_main_menu_pressed() -> void:
 	return_to_main_menu.emit()
 
 func _on_exit_pressed() -> void:
-	get_tree().quit()
+	exit_requested.emit()
 
 func _show_modal(title_text: String, body_text: String) -> void:
 	_modal_title.text = title_text

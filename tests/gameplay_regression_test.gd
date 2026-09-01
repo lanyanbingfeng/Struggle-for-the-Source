@@ -31,6 +31,15 @@ func _run() -> void:
 	var states := map.get("_player_resource_states") as Dictionary
 	states[1] = {"gold": 9999, "wood": 9999, "stone": 9999, "iron": 9999, "summon_token": 9999, "skill_experience": 9999, "experience": 9999}
 	states[2] = {"gold": 9999, "wood": 9999, "stone": 9999, "iron": 9999, "summon_token": 9999, "skill_experience": 9999, "experience": 9999}
+	var tactical_data: Dictionary = map.call(&"_get_tactical_map_data") as Dictionary
+	_expect(tactical_data.has("units"), "战术地图缺少单位情报集合")
+	_expect(not (tactical_data.get("resources", []) as Array).is_empty(), "战术地图没有显示已探索资源")
+	_expect(not (tactical_data.get("buildings", []) as Array).is_empty(), "战术地图没有显示己方基地或建筑")
+	_expect(not (tactical_data.get("territories", []) as Array).is_empty(), "战术地图没有显示已探索领地")
+	var tactical_fog: FogOfWar = map.get("fog_of_war") as FogOfWar
+	for resource_value: Variant in tactical_data.get("resources", []) as Array:
+		var resource_data: Dictionary = resource_value as Dictionary
+		_expect(tactical_fog.is_world_position_explored(resource_data.get("position", Vector2.ZERO) as Vector2), "战术地图泄露了未探索资源位置")
 
 	# The base summon button restores the paid five-card combat offer; the hero altar remains a separate direct-choice path.
 	var gold_before_base_summon: int = int((states[1] as Dictionary).get("gold", 0))
@@ -113,7 +122,25 @@ func _run() -> void:
 
 	var units := map.get("_network_units") as Dictionary
 	var wild_monsters := map.get("_wild_monsters") as Dictionary
-	_expect(wild_monsters.size() == 6, "野外蜘蛛精英数量不正确")
+	_expect(wild_monsters.size() == 5, "野外蜘蛛精英数量不正确")
+	var first_seed_spawns: Array[Rect2i] = map.call(&"_build_wild_monster_spawn_rects", 20260831) as Array[Rect2i]
+	var repeated_seed_spawns: Array[Rect2i] = map.call(&"_build_wild_monster_spawn_rects", 20260831) as Array[Rect2i]
+	var second_seed_spawns: Array[Rect2i] = map.call(&"_build_wild_monster_spawn_rects", 20260832) as Array[Rect2i]
+	_expect(first_seed_spawns.size() == 5 and repeated_seed_spawns == first_seed_spawns, "蜘蛛精英随机出生点不能按地图种子稳定复现")
+	_expect(second_seed_spawns.size() == 5 and second_seed_spawns != first_seed_spawns, "蜘蛛精英出生点仍然是固定布局")
+	var territory_rects: Array[Rect2i] = map.get("_territory_rects") as Array[Rect2i]
+	var spawned_monster_rects: Array[Rect2i] = []
+	for monster_value: Variant in wild_monsters.values():
+		var spawned_monster: WildMonster = monster_value as WildMonster
+		var spawned_rect: Rect2i = spawned_monster.get_meta(&"cell_rect", Rect2i()) as Rect2i
+		_expect(spawned_rect.size == Vector2i(2, 2), "蜘蛛精英随机出生点没有保留2×2逻辑占地")
+		var map_size_tiles: int = int(map.get("_map_size_tiles"))
+		_expect(spawned_rect.position.x >= 0 and spawned_rect.position.y >= 0 and spawned_rect.end.x <= map_size_tiles and spawned_rect.end.y <= map_size_tiles, "蜘蛛精英随机出生点超出地图边界")
+		for territory_rect: Rect2i in territory_rects:
+			_expect(not territory_rect.intersects(spawned_rect), "蜘蛛精英随机出生点进入了玩家领地")
+		for existing_spawn_rect: Rect2i in spawned_monster_rects:
+			_expect(not existing_spawn_rect.intersects(spawned_rect), "蜘蛛精英随机出生点彼此重叠")
+		spawned_monster_rects.append(spawned_rect)
 	var builder := _find_unit(units, 1, &"builder")
 	var lumber_machine: Node2D = _find_unit(units, 1, &"lumber")
 	var local_sword := _find_unit(units, 1, &"swordsman")

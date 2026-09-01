@@ -8,13 +8,14 @@ signal room_updated(snapshot: Dictionary)
 signal room_left
 signal action_rejected(message: String)
 signal game_start_received(snapshot: Dictionary)
+signal resume_save_received(record: Dictionary)
 
 enum State { IDLE, BROWSING, CONNECTING, IN_ROOM }
 enum ResourceAbundance { SCARCE, STANDARD, RICH }
 
 const DISCOVERY_PORT: int = 45454
 const GAME_PORT: int = 45455
-const PROTOCOL_VERSION: int = 1
+const PROTOCOL_VERSION: int = 3
 const MAX_NETWORK_CLIENTS: int = 16
 const DISCOVERY_QUERY_INTERVAL: float = 0.8
 const ROOM_EXPIRY_MSEC: int = 3200
@@ -39,6 +40,10 @@ var _join_rejected: bool = false
 var _settings: Dictionary = {}
 var _players: Dictionary = {}
 var _room_snapshot: Dictionary = {}
+var _resume_record: Dictionary = {}
+var _resume_roster: Array[Dictionary] = []
+var _local_participant_id: String = ""
+var _pending_resume_record: Dictionary = {}
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -97,11 +102,16 @@ func create_room(
 	player_name: String,
 	team_count: int = 2,
 	players_per_team: int = 2,
-	resource_abundance: int = ResourceAbundance.STANDARD
+	resource_abundance: int = ResourceAbundance.STANDARD,
+	wild_enemy_difficulty: int = WildEnemyDifficulty.Level.NORMAL,
+	participant_id: String = ""
 ) -> bool:
 	leave_room(false)
 	stop_discovery()
 	_local_player_name = _sanitize_name(player_name, "房主")
+	_local_participant_id = _sanitize_participant_id(participant_id)
+	if _local_participant_id.is_empty():
+		_local_participant_id = _make_fallback_participant_id(_local_player_name)
 	_room_password = password.left(32)
 	_room_nonce = "%d-%d" % [int(Time.get_unix_time_from_system()), randi()]
 	_settings = {
@@ -109,6 +119,7 @@ func create_room(
 		"team_count": clampi(team_count, 2, 4),
 		"players_per_team": clampi(players_per_team, 1, 4),
 		"resource_abundance": clampi(resource_abundance, ResourceAbundance.SCARCE, ResourceAbundance.RICH),
+		"wild_enemy_difficulty": WildEnemyDifficulty.normalize(wild_enemy_difficulty),
 	}
 
 	_discovery_server = PacketPeerUDP.new()
@@ -136,14 +147,41 @@ func create_room(
 		1,
 		1,
 		true,
-		1
+		1,
+		_local_participant_id
 	)
 	_set_state(State.IN_ROOM, "房间已创建")
 	_broadcast_snapshot()
 	room_joined.emit(_room_snapshot.duplicate(true))
 	return true
 
-func join_room(room: Dictionary, password: String, player_name: String) -> bool:
+func create_resume_room(record: Dictionary, player_name: String, participant_id: String) -> bool:
+	if not _is_valid_resume_record(record):
+		_reject("多人存档无效，无法创建恢复房间")
+		return false
+	var saved_snapshot: Dictionary = record.get("session_snapshot", {}) as Dictionary
+	var saved_settings: Dictionary = saved_snapshot.get("settings", {}) as Dictionary
+	var created: bool = create_room(
+		"继续：%s" % str(saved_settings.get("room_name", "未完成的战斗")),
+		"",
+		player_name,
+		int(saved_settings.get("team_count", 2)),
+		int(saved_settings.get("players_per_team", 2)),
+		int(saved_settings.get("resource_abundance", ResourceAbundance.STANDARD)),
+		int(saved_settings.get("wild_enemy_difficulty", WildEnemyDifficulty.Level.NORMAL)),
+		participant_id
+	)
+	if not created:
+		return false
+	_set_resume_record(record)
+	_settings["resume_game_id"] = str(record.get("game_id", ""))
+	_settings["resume_revision"] = int(record.get("revision", 0))
+	_connect_resume_player(MultiplayerPeer.TARGET_PEER_SERVER, _local_player_name, _local_participant_id, true)
+	_broadcast_snapshot()
+	room_joined.emit(_room_snapshot.duplicate(true))
+	return true
+
+func join_room(room: Dictionary, password: String, player_name: String, participant_id: String = "", local_resume_record: Dictionary = {}) -> bool:
 	var address: String = str(room.get("address", ""))
 	var port: int = int(room.get("game_port", GAME_PORT))
 	if address.is_empty():
@@ -152,8 +190,12 @@ func join_room(room: Dictionary, password: String, player_name: String) -> bool:
 	leave_room(false)
 	stop_discovery()
 	_local_player_name = _sanitize_name(player_name, "玩家")
+	_local_participant_id = _sanitize_participant_id(participant_id)
+	if _local_participant_id.is_empty():
+		_local_participant_id = _make_fallback_participant_id(_local_player_name)
 	_pending_password = password.left(32)
 	_pending_room = room.duplicate(true)
+	_pending_resume_record = local_resume_record.duplicate(true)
 	_join_rejected = false
 	_network_peer = ENetMultiplayerPeer.new()
 	var client_error: Error = _network_peer.create_client(address, port)
@@ -184,6 +226,9 @@ func leave_room(resume_discovery: bool = false) -> void:
 	_players.clear()
 	_settings.clear()
 	_room_snapshot.clear()
+	_resume_record.clear()
+	_resume_roster.clear()
+	_pending_resume_record.clear()
 	if was_in_room:
 		room_left.emit()
 	if resume_discovery:
@@ -202,9 +247,19 @@ func get_local_peer_id() -> int:
 func get_room_snapshot() -> Dictionary:
 	return _room_snapshot.duplicate(true)
 
-func update_room_settings(team_count: int, players_per_team: int, resource_abundance: int) -> void:
+func is_resume_room() -> bool:
+	return not _resume_record.is_empty()
+
+func get_resume_record() -> Dictionary:
+	return _resume_record.duplicate(true)
+
+func update_room_settings(team_count: int, players_per_team: int, resource_abundance: int, wild_enemy_difficulty: int = WildEnemyDifficulty.Level.NORMAL) -> void:
 	if not is_host():
 		_reject("只有房主可以修改房间设置")
+		return
+	if is_resume_room():
+		_reject("恢复房间沿用原战斗设置，不能修改席位和规则")
+		_broadcast_snapshot()
 		return
 	var new_team_count: int = clampi(team_count, 2, 4)
 	var new_players_per_team: int = clampi(players_per_team, 1, 4)
@@ -215,6 +270,7 @@ func update_room_settings(team_count: int, players_per_team: int, resource_abund
 	_settings["team_count"] = new_team_count
 	_settings["players_per_team"] = new_players_per_team
 	_settings["resource_abundance"] = clampi(resource_abundance, ResourceAbundance.SCARCE, ResourceAbundance.RICH)
+	_settings["wild_enemy_difficulty"] = WildEnemyDifficulty.normalize(wild_enemy_difficulty)
 	_repack_players()
 	_broadcast_snapshot()
 
@@ -241,38 +297,67 @@ func request_start_game() -> void:
 	if not _can_start_game():
 		_reject("所有玩家准备后才能开始游戏")
 		return
-	_settings["resource_seed"] = randi()
+	if not is_resume_room():
+		_settings["resource_seed"] = randi()
 	var snapshot: Dictionary = _build_snapshot()
+	if is_resume_room():
+		snapshot["resume_record"] = _resume_record.duplicate(true)
 	_rpc_start_game.rpc(snapshot)
 	game_start_received.emit(snapshot.duplicate(true))
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rpc_submit_join(password: String, player_name: String) -> void:
+func _rpc_submit_join(password: String, player_name: String, participant_id: String, resume_record: Dictionary) -> void:
 	if not multiplayer.is_server():
 		return
 	var peer_id: int = multiplayer.get_remote_sender_id()
 	if peer_id <= MultiplayerPeer.TARGET_PEER_SERVER:
 		return
 	if password != _room_password:
-		_rpc_join_result.rpc_id(peer_id, false, "房间密码错误", {})
+		_rpc_join_result.rpc_id(peer_id, false, "房间密码错误", {}, {})
 		_schedule_peer_disconnect(peer_id)
 		return
+	if is_resume_room():
+		var requested_game_id: String = str(resume_record.get("game_id", ""))
+		var current_game_id: String = str(_resume_record.get("game_id", ""))
+		if not requested_game_id.is_empty() and requested_game_id != current_game_id:
+			_rpc_join_result.rpc_id(peer_id, false, "本地存档不属于这个恢复房间", {}, {})
+			_schedule_peer_disconnect(peer_id)
+			return
+		if requested_game_id == current_game_id and int(resume_record.get("revision", 0)) > int(_resume_record.get("revision", 0)):
+			if not _is_valid_resume_record(resume_record):
+				_rpc_join_result.rpc_id(peer_id, false, "本地存档内容无效", {}, {})
+				_schedule_peer_disconnect(peer_id)
+				return
+			_set_resume_record(resume_record)
+			_settings["resume_revision"] = int(_resume_record.get("revision", 0))
+			resume_save_received.emit(_resume_record.duplicate(true))
+			_rpc_receive_resume_save.rpc(_resume_record)
 	var capacity: int = int(_settings.get("team_count", 2)) * int(_settings.get("players_per_team", 2))
 	if _players.size() >= capacity:
-		_rpc_join_result.rpc_id(peer_id, false, "房间已满", {})
+		_rpc_join_result.rpc_id(peer_id, false, "房间已满", {}, {})
 		_schedule_peer_disconnect(peer_id)
 		return
-	var seat: Vector2i = _find_first_empty_seat()
 	var unique_name: String = _make_unique_player_name(_sanitize_name(player_name, "玩家%d" % peer_id))
-	_players[peer_id] = _make_player(peer_id, unique_name, seat.x, seat.y, false, _find_first_unused_territory_id())
+	var clean_participant_id: String = _sanitize_participant_id(participant_id)
+	if clean_participant_id.is_empty():
+		clean_participant_id = _make_fallback_participant_id(unique_name)
+	if is_resume_room():
+		_connect_resume_player(peer_id, unique_name, clean_participant_id, false)
+	else:
+		var seat: Vector2i = _find_first_empty_seat()
+		_players[peer_id] = _make_player(peer_id, unique_name, seat.x, seat.y, false, _find_first_unused_territory_id(), clean_participant_id)
 	var snapshot: Dictionary = _build_snapshot()
-	_rpc_join_result.rpc_id(peer_id, true, "加入成功", snapshot)
+	var authoritative_resume: Dictionary = _resume_record.duplicate(true) if is_resume_room() else {}
+	_rpc_join_result.rpc_id(peer_id, true, "加入成功", snapshot, authoritative_resume)
 	_broadcast_snapshot()
 
 @rpc("authority", "call_remote", "reliable")
-func _rpc_join_result(accepted: bool, message: String, snapshot: Dictionary) -> void:
+func _rpc_join_result(accepted: bool, message: String, snapshot: Dictionary, resume_record: Dictionary) -> void:
 	if accepted:
 		_room_snapshot = snapshot.duplicate(true)
+		if not resume_record.is_empty():
+			_resume_record = resume_record.duplicate(true)
+			resume_save_received.emit(_resume_record.duplicate(true))
 		_set_state(State.IN_ROOM, message)
 		room_joined.emit(_room_snapshot.duplicate(true))
 		return
@@ -305,6 +390,13 @@ func _rpc_start_game(snapshot: Dictionary) -> void:
 	_room_snapshot = snapshot.duplicate(true)
 	game_start_received.emit(_room_snapshot.duplicate(true))
 
+@rpc("authority", "call_remote", "reliable")
+func _rpc_receive_resume_save(record: Dictionary) -> void:
+	if record.is_empty():
+		return
+	_resume_record = record.duplicate(true)
+	resume_save_received.emit(_resume_record.duplicate(true))
+
 func _server_move_player(peer_id: int, team: int, slot: int) -> void:
 	if not _players.has(peer_id):
 		return
@@ -312,6 +404,9 @@ func _server_move_player(peer_id: int, team: int, slot: int) -> void:
 	var players_per_team: int = int(_settings.get("players_per_team", 2))
 	if team < 1 or team > team_count or slot < 1 or slot > players_per_team:
 		_reject("目标座位无效")
+		return
+	if is_resume_room():
+		_server_claim_resume_seat(peer_id, team, slot)
 		return
 	var moving_player: Dictionary = (_players[peer_id] as Dictionary).duplicate(true)
 	var old_team: int = int(moving_player.get("team", 1))
@@ -333,9 +428,15 @@ func _server_set_ready(peer_id: int, is_ready: bool) -> void:
 	var player: Dictionary = (_players[peer_id] as Dictionary).duplicate(true)
 	player["ready"] = is_ready
 	_players[peer_id] = player
+	if is_resume_room() and int(player.get("team", 0)) > 0:
+		var roster_index: int = _find_resume_roster_index(int(player.get("team", 0)), int(player.get("slot", 0)))
+		if roster_index >= 0:
+			_resume_roster[roster_index] = player.duplicate(true)
 	_broadcast_snapshot()
 
 func _repack_players() -> void:
+	if is_resume_room():
+		return
 	var peer_ids: Array[int] = []
 	for peer_id_value: Variant in _players.keys():
 		peer_ids.append(int(peer_id_value))
@@ -358,8 +459,16 @@ func _broadcast_snapshot() -> void:
 
 func _build_snapshot() -> Dictionary:
 	var player_list: Array[Dictionary] = []
-	for player_value: Variant in _players.values():
-		player_list.append((player_value as Dictionary).duplicate(true))
+	if is_resume_room():
+		for player: Dictionary in _resume_roster:
+			player_list.append(player.duplicate(true))
+		for player_value: Variant in _players.values():
+			var connected_player: Dictionary = player_value as Dictionary
+			if int(connected_player.get("team", 0)) <= 0:
+				player_list.append(connected_player.duplicate(true))
+	else:
+		for player_value: Variant in _players.values():
+			player_list.append((player_value as Dictionary).duplicate(true))
 	player_list.sort_custom(_sort_players)
 	return {
 		"room_id": _room_nonce,
@@ -367,9 +476,12 @@ func _build_snapshot() -> Dictionary:
 		"settings": _settings.duplicate(true),
 		"players": player_list,
 		"can_start": _can_start_game(),
+		"is_resume_room": is_resume_room(),
+		"resume_game_id": str(_resume_record.get("game_id", "")),
+		"resume_revision": int(_resume_record.get("revision", 0)),
 	}
 
-func _make_player(peer_id: int, player_name: String, team: int, slot: int, host: bool, territory_id: int) -> Dictionary:
+func _make_player(peer_id: int, player_name: String, team: int, slot: int, host: bool, territory_id: int, participant_id: String = "") -> Dictionary:
 	return {
 		"peer_id": peer_id,
 		"name": player_name,
@@ -378,7 +490,92 @@ func _make_player(peer_id: int, player_name: String, team: int, slot: int, host:
 		"territory_id": territory_id,
 		"ready": false,
 		"is_host": host,
+		"participant_id": participant_id,
+		"connected": true,
 	}
+
+func _set_resume_record(record: Dictionary) -> void:
+	var connected_players: Array[Dictionary] = []
+	for player_value: Variant in _players.values():
+		connected_players.append((player_value as Dictionary).duplicate(true))
+	_resume_record = record.duplicate(true)
+	_resume_roster.clear()
+	var saved_snapshot: Dictionary = _resume_record.get("session_snapshot", {}) as Dictionary
+	var saved_players: Array = saved_snapshot.get("players", []) as Array
+	for index: int in saved_players.size():
+		var saved_player: Dictionary = (saved_players[index] as Dictionary).duplicate(true)
+		var territory_id: int = int(saved_player.get("territory_id", index + 1))
+		var participant_id: String = _sanitize_participant_id(str(saved_player.get("participant_id", "")))
+		if participant_id.is_empty():
+			participant_id = "legacy-%s-%d" % [str(_resume_record.get("game_id", "game")), territory_id]
+		saved_player["participant_id"] = participant_id
+		saved_player["peer_id"] = 0
+		saved_player["connected"] = false
+		saved_player["ready"] = false
+		saved_player["is_host"] = false
+		_resume_roster.append(saved_player)
+	_players.clear()
+	for connected: Dictionary in connected_players:
+		_connect_resume_player(
+			int(connected.get("peer_id", 0)),
+			str(connected.get("name", "玩家")),
+			str(connected.get("participant_id", "")),
+			bool(connected.get("is_host", false))
+		)
+
+func _connect_resume_player(peer_id: int, player_name: String, participant_id: String, host: bool) -> void:
+	var clean_participant_id: String = _sanitize_participant_id(participant_id)
+	for index: int in _resume_roster.size():
+		var roster_player: Dictionary = _resume_roster[index]
+		if str(roster_player.get("participant_id", "")) != clean_participant_id:
+			continue
+		if bool(roster_player.get("connected", false)) and int(roster_player.get("peer_id", 0)) != peer_id:
+			break
+		var connected: Dictionary = roster_player.duplicate(true)
+		connected["peer_id"] = peer_id
+		connected["name"] = player_name
+		connected["participant_id"] = clean_participant_id
+		connected["connected"] = true
+		connected["ready"] = false
+		connected["is_host"] = host
+		_resume_roster[index] = connected
+		_players[peer_id] = connected.duplicate(true)
+		return
+	_players[peer_id] = _make_player(peer_id, player_name, 0, 0, host, 0, clean_participant_id)
+
+func _server_claim_resume_seat(peer_id: int, team: int, slot: int) -> void:
+	var moving_player: Dictionary = (_players.get(peer_id, {}) as Dictionary).duplicate(true)
+	if moving_player.is_empty():
+		return
+	if int(moving_player.get("team", 0)) > 0:
+		_reject("你已经绑定了此存档中的原席位")
+		return
+	var roster_index: int = _find_resume_roster_index(team, slot)
+	if roster_index < 0:
+		_reject("恢复席位无效")
+		return
+	var target: Dictionary = _resume_roster[roster_index]
+	if bool(target.get("connected", false)):
+		_reject("该存档席位已经有人进入")
+		return
+	var replaced_participant_id: String = str(target.get("participant_id", ""))
+	target["replaced_participant_id"] = replaced_participant_id
+	target["participant_id"] = str(moving_player.get("participant_id", ""))
+	target["name"] = str(moving_player.get("name", "玩家"))
+	target["peer_id"] = peer_id
+	target["connected"] = true
+	target["ready"] = false
+	target["is_host"] = bool(moving_player.get("is_host", false))
+	_resume_roster[roster_index] = target
+	_players[peer_id] = target.duplicate(true)
+	_broadcast_snapshot()
+
+func _find_resume_roster_index(team: int, slot: int) -> int:
+	for index: int in _resume_roster.size():
+		var player: Dictionary = _resume_roster[index]
+		if int(player.get("team", 0)) == team and int(player.get("slot", 0)) == slot:
+			return index
+	return -1
 
 func _find_first_unused_territory_id() -> int:
 	var used_ids: Dictionary = {}
@@ -409,6 +606,14 @@ func _find_player_at(team: int, slot: int) -> int:
 func _can_start_game() -> bool:
 	if _players.is_empty():
 		return false
+	if is_resume_room():
+		for player: Dictionary in _resume_roster:
+			if not bool(player.get("connected", false)) or not bool(player.get("ready", false)):
+				return false
+		for player_value: Variant in _players.values():
+			if int((player_value as Dictionary).get("team", 0)) <= 0:
+				return false
+		return true
 	for player_value: Variant in _players.values():
 		var player: Dictionary = player_value as Dictionary
 		if not bool(player.get("ready", false)):
@@ -432,7 +637,13 @@ func _sort_players(left: Dictionary, right: Dictionary) -> bool:
 	return left_key < right_key
 
 func _on_connected_to_server() -> void:
-	_rpc_submit_join.rpc_id(MultiplayerPeer.TARGET_PEER_SERVER, _pending_password, _local_player_name)
+	_rpc_submit_join.rpc_id(
+		MultiplayerPeer.TARGET_PEER_SERVER,
+		_pending_password,
+		_local_player_name,
+		_local_participant_id,
+		_pending_resume_record
+	)
 
 func _on_connection_failed() -> void:
 	_cleanup_client_connection()
@@ -454,6 +665,16 @@ func _on_peer_connected(_peer_id: int) -> void:
 func _on_peer_disconnected(peer_id: int) -> void:
 	if not is_host() or not _players.has(peer_id):
 		return
+	if is_resume_room():
+		var disconnected: Dictionary = _players[peer_id] as Dictionary
+		var roster_index: int = _find_resume_roster_index(int(disconnected.get("team", 0)), int(disconnected.get("slot", 0)))
+		if roster_index >= 0:
+			var roster_player: Dictionary = _resume_roster[roster_index].duplicate(true)
+			roster_player["peer_id"] = 0
+			roster_player["connected"] = false
+			roster_player["ready"] = false
+			roster_player["is_host"] = false
+			_resume_roster[roster_index] = roster_player
 	_players.erase(peer_id)
 	_broadcast_snapshot()
 
@@ -464,6 +685,9 @@ func _cleanup_client_connection() -> void:
 	multiplayer.multiplayer_peer = null
 	_players.clear()
 	_room_snapshot.clear()
+	_resume_record.clear()
+	_resume_roster.clear()
+	_pending_resume_record.clear()
 	_is_host = false
 	_join_rejected = false
 	_set_state(State.IDLE, "")
@@ -532,6 +756,10 @@ func _build_discovery_room_info() -> Dictionary:
 		"team_count": team_count,
 		"players_per_team": players_per_team,
 		"resource_abundance": int(_settings.get("resource_abundance", ResourceAbundance.STANDARD)),
+		"wild_enemy_difficulty": int(_settings.get("wild_enemy_difficulty", WildEnemyDifficulty.Level.NORMAL)),
+		"is_resume_room": is_resume_room(),
+		"resume_game_id": str(_resume_record.get("game_id", "")),
+		"resume_revision": int(_resume_record.get("revision", 0)),
 	}
 
 func _room_info_changed(previous: Dictionary, current: Dictionary) -> bool:
@@ -580,6 +808,26 @@ func _decode_message(packet: PackedByteArray) -> Dictionary:
 func _sanitize_name(value: String, fallback: String) -> String:
 	var sanitized: String = value.strip_edges().left(24)
 	return fallback if sanitized.is_empty() else sanitized
+
+func _sanitize_participant_id(value: String) -> String:
+	var sanitized: String = ""
+	for character: String in value.left(64):
+		if character.to_lower() in "abcdefghijklmnopqrstuvwxyz0123456789-_":
+			sanitized += character.to_lower()
+	return sanitized
+
+func _is_valid_resume_record(record: Dictionary) -> bool:
+	if int(record.get("format_version", 0)) != 1 or str(record.get("mode", "")) != "multiplayer":
+		return false
+	if str(record.get("game_id", "")).is_empty() or int(record.get("revision", 0)) <= 0:
+		return false
+	if record.get("session_snapshot") is not Dictionary or record.get("world_state") is not Dictionary:
+		return false
+	var snapshot: Dictionary = record.get("session_snapshot", {}) as Dictionary
+	return snapshot.get("players") is Array and snapshot.get("settings") is Dictionary
+
+func _make_fallback_participant_id(player_name: String) -> String:
+	return ("%s:%d:%d" % [player_name, int(Time.get_unix_time_from_system()), randi()]).sha256_text().left(24)
 
 func _set_state(next_state: State, message: String) -> void:
 	state = next_state

@@ -8,7 +8,7 @@ const INVALID_CHUNK: Vector2i = Vector2i(-99999, -99999)
 const RESOURCE_MARKER_SCRIPT: Script = preload("res://game/world/world_resource_marker.gd")
 const TREE_FOOTPRINT_OFFSETS: Array[Vector2i] = [Vector2i.ZERO, Vector2i.UP]
 
-var _map_size_tiles: int = 1000
+var _map_size_tiles: int = 500
 var _tile_size: int = 32
 var _tree_container: Node2D
 var _stone_container: Node2D
@@ -89,6 +89,51 @@ func claim_resource_by_id(resource_id: int, expected_type: StringName = &"") -> 
 
 func get_resource_data(resource_id: int) -> Dictionary:
 	return (_resource_data_by_id.get(resource_id, {}) as Dictionary).duplicate(true)
+
+func get_all_resource_data() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for resource_id: int in _resource_data_by_id.keys():
+		var data: Dictionary = _resource_data_by_id.get(resource_id, {}) as Dictionary
+		if not data.is_empty():
+			result.append(data.duplicate(true))
+	return result
+
+func restore_resource_data(saved_resources: Array) -> void:
+	clear_all()
+	var highest_resource_id: int = 0
+	for value: Variant in saved_resources:
+		if value is not Dictionary:
+			continue
+		var saved: Dictionary = (value as Dictionary).duplicate(true)
+		var resource_id: int = int(saved.get("resource_id", 0))
+		var resource_type: StringName = StringName(str(saved.get("resource_type", "")))
+		var cell: Vector2i = saved.get("cell", Vector2i(-1, -1)) as Vector2i
+		if resource_id <= 0 or resource_type not in [&"tree", &"stone", &"iron", &"chest"]:
+			continue
+		if cell.x < 0 or cell.y < 0 or cell.x >= _map_size_tiles or cell.y >= _map_size_tiles:
+			continue
+		var footprint: Array[Vector2i] = _resource_footprint_cells(resource_type, cell)
+		var overlaps: bool = false
+		for footprint_cell: Vector2i in footprint:
+			if _occupied_cells.has(footprint_cell):
+				overlaps = true
+				break
+		if overlaps:
+			continue
+		for footprint_cell: Vector2i in footprint:
+			_occupied_cells[footprint_cell] = true
+		var chunk: Vector2i = _cell_to_chunk(cell)
+		saved["resource_id"] = resource_id
+		saved["resource_type"] = resource_type
+		saved["cell"] = cell
+		saved["chunk"] = chunk
+		_resource_data_by_id[resource_id] = saved
+		var chunk_ids: Array = _resource_ids_by_chunk.get(chunk, []) as Array
+		chunk_ids.append(resource_id)
+		_resource_ids_by_chunk[chunk] = chunk_ids
+		highest_resource_id = maxi(highest_resource_id, resource_id)
+	_next_resource_id = highest_resource_id + 1
+	_center_chunk = INVALID_CHUNK
 
 func count_resources_in_rect(rect: Rect2i) -> Dictionary:
 	var counts: Dictionary = {&"tree": 0, &"stone": 0, &"iron": 0, &"chest": 0}

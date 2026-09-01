@@ -57,6 +57,9 @@ func _zoom_at_pointer(factor: float) -> void:
 	var world_position_after_zoom: Vector2 = get_global_mouse_position()
 	position = _clamped_position(position + world_position_before_zoom - world_position_after_zoom)
 
+func jump_to_world_position(world_position: Vector2) -> void:
+	position = _clamped_position(world_position)
+
 func _get_edge_strength(mouse_position: Vector2, viewport_size: Vector2, edge_size: Vector2) -> Vector2:
 	var strength: Vector2 = Vector2.ZERO
 	if mouse_position.x < edge_size.x:

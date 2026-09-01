@@ -41,6 +41,7 @@ var _target: HealthComponent
 var _health: HealthComponent
 var _home_position: Vector2 = Vector2.ZERO
 var _network_position: Vector2 = Vector2.ZERO
+var _network_in_combat: bool = false
 var _navigation_path: PackedVector2Array = PackedVector2Array()
 var _navigation_index: int = 0
 var _navigation_elapsed: float = PATH_REFRESH_INTERVAL
@@ -51,15 +52,24 @@ var _attack_elapsed: float = 0.0
 var _skill_cooldown_remaining: float = WEB_SKILL_INITIAL_DELAY_SECONDS
 var _control_remaining: float = 0.0
 var _attack_tween: Tween
+var _difficulty: int = WildEnemyDifficulty.Level.NORMAL
+var _health_multiplier: float = 1.0
+var _damage_multiplier: float = 1.0
+var _interval_multiplier: float = 1.0
 
-func configure(new_monster_id: int, should_simulate: bool) -> void:
+func configure(new_monster_id: int, should_simulate: bool, difficulty: int = WildEnemyDifficulty.Level.NORMAL) -> void:
 	monster_id = new_monster_id
 	simulation_enabled = should_simulate
+	_difficulty = WildEnemyDifficulty.normalize(difficulty)
+	_health_multiplier = WildEnemyDifficulty.get_health_multiplier(_difficulty)
+	_damage_multiplier = WildEnemyDifficulty.get_damage_multiplier(_difficulty)
+	_interval_multiplier = WildEnemyDifficulty.get_interval_multiplier(_difficulty)
 	_home_position = global_position
 	_network_position = global_position
+	_network_in_combat = false
 	_scan_elapsed = 0.0
 	_attack_elapsed = 0.0
-	_skill_cooldown_remaining = WEB_SKILL_INITIAL_DELAY_SECONDS
+	_skill_cooldown_remaining = WEB_SKILL_INITIAL_DELAY_SECONDS * _interval_multiplier
 	_control_remaining = 0.0
 	_target = null
 	_returning_home = false
@@ -71,11 +81,33 @@ func setup_combat_context(target_provider: Callable, path_provider: Callable, ti
 	_tile_size = float(tile_size)
 	_health = get_node_or_null("HealthComponent") as HealthComponent
 
-func apply_network_state(network_position: Vector2) -> void:
+func apply_network_state(network_position: Vector2, in_combat: bool = false) -> void:
 	_network_position = network_position
+	_network_in_combat = in_combat
 
 func get_display_name() -> String:
 	return DISPLAY_NAME
+
+func is_in_combat() -> bool:
+	return is_instance_valid(_target) and _target.is_alive() if simulation_enabled else _network_in_combat
+
+func get_max_health() -> float:
+	return MAX_HEALTH * _health_multiplier
+
+func get_attack_damage() -> float:
+	return ATTACK_DAMAGE * _damage_multiplier
+
+func get_attack_interval() -> float:
+	return ATTACK_INTERVAL * _interval_multiplier
+
+func get_web_skill_damage() -> float:
+	return WEB_SKILL_DAMAGE * _damage_multiplier
+
+func get_web_skill_cooldown() -> float:
+	return WEB_SKILL_COOLDOWN_SECONDS * _interval_multiplier
+
+func get_difficulty() -> int:
+	return _difficulty
 
 func _physics_process(delta: float) -> void:
 	if not simulation_enabled:
@@ -126,7 +158,7 @@ func _acquire_target() -> void:
 	if _target == null:
 		return
 	_returning_home = false
-	_attack_elapsed = maxf(_attack_elapsed, ATTACK_INTERVAL * ATTACK_READY_ON_ACQUIRE)
+	_attack_elapsed = maxf(_attack_elapsed, get_attack_interval() * ATTACK_READY_ON_ACQUIRE)
 	_clear_navigation()
 
 func _validate_target() -> void:
@@ -145,17 +177,18 @@ func _process_combat_target(delta: float) -> void:
 	var target_position: Vector2 = _target.get_target_position()
 	var attack_radius: float = ATTACK_RANGE_TILES * _tile_size + _target.combat_radius
 	if global_position.distance_to(target_position) > attack_radius:
-		var ready_limit: float = ATTACK_INTERVAL * MOVING_ATTACK_CHARGE_LIMIT
+		var ready_limit: float = get_attack_interval() * MOVING_ATTACK_CHARGE_LIMIT
 		_attack_elapsed = minf(ready_limit, _attack_elapsed + delta)
 		_process_navigation(target_position)
 		return
 	velocity = Vector2.ZERO
 	_clear_navigation()
 	_attack_elapsed += delta
-	if _attack_elapsed < ATTACK_INTERVAL:
+	var attack_interval: float = get_attack_interval()
+	if _attack_elapsed < attack_interval:
 		return
-	_attack_elapsed -= ATTACK_INTERVAL
-	_target.apply_attack(ATTACK_DAMAGE)
+	_attack_elapsed -= attack_interval
+	_target.apply_attack(get_attack_damage(), 0, 0.0, "%s的毒液攻击" % DISPLAY_NAME)
 	_play_attack_reaction(target_position)
 	play_attack_visual(target_position)
 	attack_visual_requested.emit(monster_id, target_position)
@@ -178,10 +211,10 @@ func _try_cast_web_skill() -> bool:
 	if targets.is_empty():
 		return false
 	for target: HealthComponent in targets:
-		target.apply_attack(WEB_SKILL_DAMAGE)
+		target.apply_attack(get_web_skill_damage(), 0, 0.0, "%s的蛛网缚杀" % DISPLAY_NAME)
 		if target.is_alive() and is_instance_valid(target.target_root) and target.target_root.has_method(&"apply_control"):
 			target.target_root.call(&"apply_control", WEB_SKILL_CONTROL_SECONDS)
-	_skill_cooldown_remaining = WEB_SKILL_COOLDOWN_SECONDS
+	_skill_cooldown_remaining = get_web_skill_cooldown()
 	_attack_elapsed = 0.0
 	play_skill_visual(center_position)
 	skill_visual_requested.emit(monster_id, center_position)
@@ -197,7 +230,7 @@ func _process_return_home(delta: float) -> void:
 		_returning_home = false
 		_clear_navigation()
 		return
-	_attack_elapsed = minf(ATTACK_INTERVAL * MOVING_ATTACK_CHARGE_LIMIT, _attack_elapsed + delta)
+	_attack_elapsed = minf(get_attack_interval() * MOVING_ATTACK_CHARGE_LIMIT, _attack_elapsed + delta)
 	_process_navigation(_home_position)
 
 func _process_navigation(target_position: Vector2) -> void:

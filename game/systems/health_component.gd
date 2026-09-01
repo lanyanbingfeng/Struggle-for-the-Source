@@ -3,6 +3,7 @@ extends Node
 
 signal state_changed(current_health: float, max_health: float, current_mana: float, max_mana: float)
 signal died(component: HealthComponent)
+signal damaged(component: HealthComponent, damage: float, source_owner_peer_id: int, source_description: String)
 
 var target_root: Node2D
 var owner_peer_id: int = 0
@@ -78,7 +79,12 @@ func configure(
 	_rng.seed = peer_id * 1000003 + int(root.get_instance_id())
 	_emit_state()
 
-func apply_attack(raw_attack: float, source_owner_peer_id: int = 0, defense_ignore_ratio: float = 0.0) -> float:
+func apply_attack(
+	raw_attack: float,
+	source_owner_peer_id: int = 0,
+	defense_ignore_ratio: float = 0.0,
+	source_description: String = "未知攻击"
+) -> float:
 	if not _alive:
 		return 0.0
 	if evasion_chance > 0.0 and _rng.randf() < evasion_chance:
@@ -92,19 +98,22 @@ func apply_attack(raw_attack: float, source_owner_peer_id: int = 0, defense_igno
 		last_damage_owner_peer_id = source_owner_peer_id
 	current_health = maxf(0.0, current_health - damage)
 	_emit_state()
+	damaged.emit(self, damage, source_owner_peer_id, source_description)
 	if current_health <= 0.0:
 		_alive = false
 		died.emit(self)
 	return damage
 
-func execute_if_below(health_ratio: float, source_owner_peer_id: int = 0) -> bool:
+func execute_if_below(health_ratio: float, source_owner_peer_id: int = 0, source_description: String = "斩杀技能") -> bool:
 	if not _alive or health_ratio <= 0.0 or get_health_ratio() >= health_ratio:
 		return false
+	var executed_health: float = current_health
 	current_health = 0.0
 	if source_owner_peer_id > 0:
 		last_damage_owner_peer_id = source_owner_peer_id
 	_alive = false
 	_emit_state()
+	damaged.emit(self, executed_health, source_owner_peer_id, source_description)
 	died.emit(self)
 	return true
 

@@ -153,6 +153,27 @@ func get_construction_progress() -> float:
 		return 1.0
 	return clampf(_construction_elapsed / definition.construction_seconds, 0.0, 1.0)
 
+func get_runtime_save_state() -> Dictionary:
+	return {
+		"construction_complete": construction_complete,
+		"construction_elapsed": _construction_elapsed,
+		"production_elapsed": _production_elapsed,
+	}
+
+func restore_runtime_save_state(state: Dictionary) -> void:
+	if definition == null:
+		return
+	_construction_elapsed = clampf(float(state.get("construction_elapsed", 0.0)), 0.0, definition.construction_seconds)
+	_production_elapsed = maxf(0.0, float(state.get("production_elapsed", 0.0)))
+	if bool(state.get("construction_complete", false)):
+		var previous_simulation_enabled: bool = simulation_enabled
+		simulation_enabled = false
+		force_finish_construction()
+		simulation_enabled = previous_simulation_enabled
+	else:
+		construction_complete = false
+		_update_construction_ui()
+
 func _update_collection_bubble() -> void:
 	if not is_instance_valid(bubble_area) or not is_instance_valid(bubble_label):
 		return

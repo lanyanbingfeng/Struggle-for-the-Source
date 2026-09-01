@@ -36,6 +36,7 @@ var _navigation_path: PackedVector2Array = PackedVector2Array()
 var _navigation_index: int = 0
 var _manual_move_active: bool = false
 var _network_position: Vector2 = Vector2.ZERO
+var _network_in_combat: bool = false
 var _selected: bool = false
 var _health: HealthComponent
 var _enemy_provider: Callable
@@ -86,6 +87,7 @@ func configure_network(new_unit_id: int, new_owner_peer_id: int, new_territory_i
 	definition = new_definition
 	simulation_enabled = should_simulate
 	_network_position = global_position
+	_network_in_combat = false
 	_combat_origin = global_position
 	_control_remaining = 0.0
 	_combat_buff_durations.clear()
@@ -173,10 +175,11 @@ func set_priority_attack_target(target: HealthComponent) -> bool:
 	has_move_target = true
 	return true
 
-func apply_network_state(network_position: Vector2, network_target: Vector2, moving: bool) -> void:
+func apply_network_state(network_position: Vector2, network_target: Vector2, moving: bool, in_combat: bool = false) -> void:
 	_network_position = network_position
 	move_target = network_target
 	has_move_target = moving
+	_network_in_combat = in_combat
 	if not moving:
 		_navigation_path = PackedVector2Array()
 		_navigation_index = 0
@@ -187,6 +190,14 @@ func set_selected(selected: bool) -> void:
 
 func get_vision_radius_world(tile_size: int) -> float:
 	return (definition.vision_radius_tiles if definition != null else 4.0) * float(tile_size)
+
+func get_display_name() -> String:
+	return definition.display_name if definition != null else "单位"
+
+func is_in_combat() -> bool:
+	if not simulation_enabled:
+		return _network_in_combat
+	return is_instance_valid(_combat_target) and _combat_target.is_alive()
 
 func play_attack_visual(target_position: Vector2) -> void:
 	if not is_instance_valid(_attack_vfx) or definition == null:
@@ -320,7 +331,12 @@ func _process_combat_target(delta: float) -> void:
 	if _attack_elapsed < effective_attack_interval:
 		return
 	_attack_elapsed -= effective_attack_interval
-	_combat_target.apply_attack(get_effective_attack() * get_attack_multiplier(), owner_peer_id)
+	_combat_target.apply_attack(
+		get_effective_attack() * get_attack_multiplier(),
+		owner_peer_id,
+		0.0,
+		_attack_source_description("普通攻击")
+	)
 	_play_attack_animation(target_position)
 
 func _process_combat_return(delta: float) -> void:
@@ -666,9 +682,10 @@ func _valid_enemies_within(radius_tiles: float) -> Array[HealthComponent]:
 func _apply_configured_skill(skill: CombatSkillDefinition, targets: Array[HealthComponent]) -> void:
 	var source_id: StringName = StringName("%s_%d" % [skill.skill_id, unit_id])
 	var fixed_scale: float = get_star_stat_multiplier()
+	var skill_source_description: String = _attack_source_description(skill.display_name)
 	for target: HealthComponent in targets:
 		if skill.damage_multiplier > 0.0:
-			target.apply_attack(get_effective_attack() * skill.damage_multiplier, owner_peer_id, skill.defense_ignore_ratio)
+			target.apply_attack(get_effective_attack() * skill.damage_multiplier, owner_peer_id, skill.defense_ignore_ratio, skill_source_description)
 		if skill.heal_percent > 0.0:
 			target.heal(target.max_health * skill.heal_percent)
 		if not is_zero_approx(skill.defense_modifier):
@@ -704,7 +721,14 @@ func _apply_status_effects(skill: CombatSkillDefinition, status: CombatStatusCon
 	if skill.control_duration_reduction_ratio > 0.0:
 		status.apply_control_resistance(skill.control_duration_reduction_ratio, skill.effect_duration_seconds)
 	if skill.dot_damage_multiplier > 0.0:
-		status.apply_dot(source_id, get_effective_attack() * skill.dot_damage_multiplier, skill.dot_duration_seconds, skill.dot_interval_seconds, owner_peer_id)
+		status.apply_dot(
+			source_id,
+			get_effective_attack() * skill.dot_damage_multiplier,
+			skill.dot_duration_seconds,
+			skill.dot_interval_seconds,
+			owner_peer_id,
+			_attack_source_description("%s持续伤害" % skill.display_name)
+		)
 	if skill.reveal_radius_tiles > 0.0:
 		status.reveal_to_peer(owner_peer_id, skill.effect_duration_seconds)
 	if skill.cleanse_damage_over_time or skill.cleanse_movement_slow or skill.cleanse_attack_slow or skill.cleanse_defense_reduction or skill.cleanse_control:
@@ -782,15 +806,20 @@ func _try_cast_stylish_slash() -> bool:
 			visual_target_position = target_position
 	if targets.is_empty() or not _health.spend_mana(float(definition.skill_mana_cost)):
 		return false
+	var skill_source_description: String = _attack_source_description(definition.skill_name)
 	for target: HealthComponent in targets:
-		if target.execute_if_below(definition.skill_execute_health_ratio, owner_peer_id):
+		if target.execute_if_below(definition.skill_execute_health_ratio, owner_peer_id, skill_source_description):
 			continue
-		target.apply_attack(skill_damage, owner_peer_id)
+		target.apply_attack(skill_damage, owner_peer_id, 0.0, skill_source_description)
 	_skill_cooldown_remaining = definition.skill_cooldown_seconds
 	_attack_elapsed = 0.0
 	play_skill_visual(&"stylish_slash", visual_target_position)
 	skill_visual_requested.emit(unit_id, &"stylish_slash", visual_target_position, &"unit", unit_id)
 	return true
+
+func _attack_source_description(attack_name: String) -> String:
+	var resolved_attack_name: String = attack_name if not attack_name.is_empty() else "攻击"
+	return "%s的%s" % [get_display_name(), resolved_attack_name]
 
 func _play_attack_animation(target_position: Vector2) -> void:
 	if is_instance_valid(_attack_tween):

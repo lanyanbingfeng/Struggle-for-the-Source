@@ -43,6 +43,9 @@
 - [基地选址内嵌确认与键盘微调](memory/2026-08-27-base-placement-inline-confirmation.md)
 - [资源闭环、英雄台与野怪](memory/2026-08-28-resource-loop-hero-altar-wild-monster.md)
 - [幽网织母蜘蛛精英战斗](memory/2026-08-30-elite-spider-combat.md)
+- [蜘蛛精英随机出生](memory/2026-08-31-random-elite-spider-spawns.md)
+- [九格世界BOSS镇岳魔神玄狱与开发者生成工具](memory/2026-08-31-world-boss.md)
+- [BOSS顶部血条与镇岳崩遮挡修复](memory/2026-08-31-world-boss-hud-vfx-layer-fix.md)
 - [开发者无限资源模式](memory/2026-08-28-developer-infinite-resources.md)
 - [建筑工人寻路施工与 ImageGen 独立建筑美术](memory/2026-08-28-builder-walk-construction-imagegen-buildings.md)
 - [基地五卡召唤、战斗开箱与建筑红绿预览](memory/2026-08-28-base-summon-chest-combat-build-preview.md)
@@ -60,6 +63,11 @@
 - [树木两格资源占用重叠修复](memory/2026-08-31-tree-footprint-resource-overlap-fix.md)
 - [十八种白色战斗单位与完整特效资源](memory/2026-08-31-white-combat-unit-roster.md)
 - [白色战斗单位特效显示缩放](memory/2026-08-31-white-unit-vfx-display-scale.md)
+- [单人游戏设置与三档地图大小](memory/2026-08-31-single-player-game-settings.md)
+- [探索战术地图与单位受击提醒](memory/2026-08-31-tactical-map-attack-alerts.md)
+- [资源、单位与建筑详细战术地图](memory/2026-08-31-detailed-tactical-map.md)
+- [战术地图拖动平移与持续定位](memory/2026-08-31-tactical-map-drag-navigation.md)
+- [单人自动存档与多人战斗恢复](memory/2026-09-01-single-multiplayer-save-resume.md)
 
 ## 维护规则
 

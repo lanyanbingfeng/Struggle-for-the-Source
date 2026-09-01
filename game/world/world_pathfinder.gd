@@ -36,24 +36,31 @@ func set_external_obstacles(extra_solid_cells: Array[Vector2i]) -> void:
 			_external_solid_cells[cell] = true
 
 func find_path(start_position: Vector2, requested_target: Vector2) -> PackedVector2Array:
+	return _find_path_with_footprint(start_position, requested_target, Vector2i.ONE)
+
+func find_path_for_footprint(start_position: Vector2, requested_target: Vector2, footprint: Vector2i) -> PackedVector2Array:
+	var safe_footprint: Vector2i = Vector2i(maxi(1, footprint.x), maxi(1, footprint.y))
+	return _find_path_with_footprint(start_position, requested_target, safe_footprint)
+
+func _find_path_with_footprint(start_position: Vector2, requested_target: Vector2, footprint: Vector2i) -> PackedVector2Array:
 	if _grid_size.x <= 0 or _grid_size.y <= 0:
 		return PackedVector2Array()
 	var requested_start_cell: Vector2i = _world_to_cell(start_position)
 	var requested_target_cell: Vector2i = _world_to_cell(requested_target)
-	var start_cell: Vector2i = _nearest_walkable_cell(requested_start_cell, requested_target_cell)
-	var target_cell: Vector2i = _nearest_walkable_cell(requested_target_cell, start_cell)
+	var start_cell: Vector2i = _nearest_walkable_cell(requested_start_cell, requested_target_cell, footprint)
+	var target_cell: Vector2i = _nearest_walkable_cell(requested_target_cell, start_cell, footprint)
 	if start_cell == INVALID_CELL or target_cell == INVALID_CELL:
 		return PackedVector2Array()
 	var clamped_target: Vector2 = _clamp_world_position(requested_target)
-	var final_position: Vector2 = clamped_target if target_cell == requested_target_cell and _is_world_point_clear(clamped_target) else _cell_center(target_cell)
+	var final_position: Vector2 = clamped_target if target_cell == requested_target_cell and _is_world_point_clear_for_footprint(clamped_target, footprint) else _cell_center(target_cell)
 	if start_cell == target_cell:
 		return PackedVector2Array([final_position])
-	if _is_grid_segment_walkable(start_cell, target_cell):
+	if _is_grid_segment_walkable(start_cell, target_cell, footprint):
 		return PackedVector2Array([final_position])
-	var cell_path: Array[Vector2i] = _find_astar_path(start_cell, target_cell)
+	var cell_path: Array[Vector2i] = _find_astar_path(start_cell, target_cell, footprint)
 	if cell_path.is_empty():
 		return PackedVector2Array()
-	var smoothed_path: Array[Vector2i] = _smooth_cell_path(cell_path)
+	var smoothed_path: Array[Vector2i] = _smooth_cell_path(cell_path, footprint)
 	var world_path: PackedVector2Array = PackedVector2Array()
 	for index: int in range(1, smoothed_path.size()):
 		if index == smoothed_path.size() - 1:
@@ -66,20 +73,30 @@ func is_world_position_walkable(world_position: Vector2) -> bool:
 	var cell: Vector2i = _world_to_cell(world_position)
 	return _is_cell_in_bounds(cell) and not _is_cell_solid(cell)
 
+func is_cell_rect_walkable(cell_rect: Rect2i) -> bool:
+	if cell_rect.size.x <= 0 or cell_rect.size.y <= 0:
+		return false
+	for y: int in range(cell_rect.position.y, cell_rect.end.y):
+		for x: int in range(cell_rect.position.x, cell_rect.end.x):
+			var cell := Vector2i(x, y)
+			if not _is_cell_in_bounds(cell) or _is_cell_solid(cell):
+				return false
+	return true
+
 func get_solid_cell_count() -> int:
 	return _solid_cells.size() + _external_solid_cells.size()
 
-func _find_astar_path(start: Vector2i, target: Vector2i) -> Array[Vector2i]:
+func _find_astar_path(start: Vector2i, target: Vector2i, footprint: Vector2i) -> Array[Vector2i]:
 	for margin: int in SEARCH_MARGINS:
 		var search_bounds: Rect2i = _make_search_bounds(start, target, margin)
-		var path: Array[Vector2i] = _find_astar_path_in_bounds(start, target, search_bounds)
+		var path: Array[Vector2i] = _find_astar_path_in_bounds(start, target, search_bounds, footprint)
 		if not path.is_empty():
 			return path
 		if search_bounds.position == Vector2i.ZERO and search_bounds.size == _grid_size:
 			break
 	return []
 
-func _find_astar_path_in_bounds(start: Vector2i, target: Vector2i, search_bounds: Rect2i) -> Array[Vector2i]:
+func _find_astar_path_in_bounds(start: Vector2i, target: Vector2i, search_bounds: Rect2i, footprint: Vector2i) -> Array[Vector2i]:
 	var open_cells: Array[Vector2i] = []
 	var open_priorities: Array[float] = []
 	var open_heuristics: Array[float] = []
@@ -100,10 +117,10 @@ func _find_astar_path_in_bounds(start: Vector2i, target: Vector2i, search_bounds
 		var current_cost: float = g_score.get(current, INF)
 		for direction: Vector2i in NEIGHBOR_DIRECTIONS:
 			var neighbor: Vector2i = current + direction
-			if not search_bounds.has_point(neighbor) or closed.has(neighbor) or _is_cell_solid(neighbor):
+			if not search_bounds.has_point(neighbor) or closed.has(neighbor) or not _is_footprint_walkable(neighbor, footprint):
 				continue
 			var diagonal: bool = direction.x != 0 and direction.y != 0
-			if diagonal and (_is_cell_solid(current + Vector2i(direction.x, 0)) or _is_cell_solid(current + Vector2i(0, direction.y))):
+			if diagonal and (not _is_footprint_walkable(current + Vector2i(direction.x, 0), footprint) or not _is_footprint_walkable(current + Vector2i(0, direction.y), footprint)):
 				continue
 			var step_cost: float = DIAGONAL_MOVE_COST if diagonal else CARDINAL_MOVE_COST
 			var tentative_cost: float = current_cost + step_cost
@@ -123,21 +140,21 @@ func _reconstruct_cell_path(came_from: Dictionary[Vector2i, Vector2i], current: 
 	reversed_path.reverse()
 	return reversed_path
 
-func _smooth_cell_path(cell_path: Array[Vector2i]) -> Array[Vector2i]:
+func _smooth_cell_path(cell_path: Array[Vector2i], footprint: Vector2i) -> Array[Vector2i]:
 	if cell_path.size() <= 2:
 		return cell_path
 	var smoothed: Array[Vector2i] = [cell_path[0]]
 	var anchor_index: int = 0
 	while anchor_index < cell_path.size() - 1:
 		var next_index: int = cell_path.size() - 1
-		while next_index > anchor_index + 1 and not _is_grid_segment_walkable(cell_path[anchor_index], cell_path[next_index]):
+		while next_index > anchor_index + 1 and not _is_grid_segment_walkable(cell_path[anchor_index], cell_path[next_index], footprint):
 			next_index -= 1
 		smoothed.append(cell_path[next_index])
 		anchor_index = next_index
 	return smoothed
 
-func _is_grid_segment_walkable(from_cell: Vector2i, to_cell: Vector2i) -> bool:
-	if _is_cell_solid(from_cell) or _is_cell_solid(to_cell):
+func _is_grid_segment_walkable(from_cell: Vector2i, to_cell: Vector2i, footprint: Vector2i) -> bool:
+	if not _is_footprint_walkable(from_cell, footprint) or not _is_footprint_walkable(to_cell, footprint):
 		return false
 	var from_position: Vector2 = _cell_center(from_cell)
 	var to_position: Vector2 = _cell_center(to_cell)
@@ -146,8 +163,17 @@ func _is_grid_segment_walkable(from_cell: Vector2i, to_cell: Vector2i) -> bool:
 	var sample_count: int = maxi(1, ceili(distance / sample_spacing))
 	for sample_index: int in range(sample_count + 1):
 		var sample: Vector2 = from_position.lerp(to_position, float(sample_index) / float(sample_count))
-		if not _is_world_point_clear(sample):
+		if not _is_world_point_clear_for_footprint(sample, footprint):
 			return false
+	return true
+
+func _is_world_point_clear_for_footprint(world_position: Vector2, footprint: Vector2i) -> bool:
+	var half: Vector2i = Vector2i(footprint.x >> 1, footprint.y >> 1)
+	for y: int in range(footprint.y):
+		for x: int in range(footprint.x):
+			var offset: Vector2i = Vector2i(x, y) - half
+			if not _is_world_point_clear(world_position + Vector2(offset * _tile_size)):
+				return false
 	return true
 
 func _is_world_point_clear(world_position: Vector2) -> bool:
@@ -278,9 +304,9 @@ func _mark_collision_shape(collision_shape: CollisionShape2D) -> void:
 			if _is_cell_in_bounds(cell):
 				_solid_cells[cell] = true
 
-func _nearest_walkable_cell(origin: Vector2i, reference: Vector2i) -> Vector2i:
+func _nearest_walkable_cell(origin: Vector2i, reference: Vector2i, footprint: Vector2i) -> Vector2i:
 	var clamped_origin: Vector2i = _clamp_cell(origin)
-	if not _is_cell_solid(clamped_origin):
+	if _is_footprint_walkable(clamped_origin, footprint):
 		return clamped_origin
 	for radius: int in range(1, MAX_NEAREST_CELL_RADIUS + 1):
 		var best: Vector2i = INVALID_CELL
@@ -291,7 +317,7 @@ func _nearest_walkable_cell(origin: Vector2i, reference: Vector2i) -> Vector2i:
 				if maxi(absi(x_offset), absi(y_offset)) != radius:
 					continue
 				var candidate: Vector2i = clamped_origin + Vector2i(x_offset, y_offset)
-				if not _is_cell_in_bounds(candidate) or _is_cell_solid(candidate):
+				if not _is_footprint_walkable(candidate, footprint):
 					continue
 				var origin_distance: float = Vector2(candidate).distance_squared_to(Vector2(clamped_origin))
 				var reference_distance: float = Vector2(candidate).distance_squared_to(Vector2(reference))
@@ -305,6 +331,15 @@ func _nearest_walkable_cell(origin: Vector2i, reference: Vector2i) -> Vector2i:
 
 func _is_cell_solid(cell: Vector2i) -> bool:
 	return _solid_cells.has(cell) or _external_solid_cells.has(cell)
+
+func _is_footprint_walkable(center_cell: Vector2i, footprint: Vector2i) -> bool:
+	var top_left: Vector2i = center_cell - Vector2i(footprint.x >> 1, footprint.y >> 1)
+	for y: int in range(top_left.y, top_left.y + footprint.y):
+		for x: int in range(top_left.x, top_left.x + footprint.x):
+			var cell: Vector2i = Vector2i(x, y)
+			if not _is_cell_in_bounds(cell) or _is_cell_solid(cell):
+				return false
+	return true
 
 func _world_to_cell(world_position: Vector2) -> Vector2i:
 	return Vector2i(floori(world_position.x / float(_tile_size)), floori(world_position.y / float(_tile_size)))

@@ -2,11 +2,12 @@
 extends Node2D
 
 const MachineProgressionData: Script = preload("res://game/data/machine_progression.gd")
+const MapSizeSettingData: Script = preload("res://game/data/map_size_setting.gd")
 const WORLD_RESOURCE_MARKER_SCRIPT: Script = preload("res://game/world/world_resource_marker.gd")
 const HEALTH_COMPONENT_SCRIPT: Script = preload("res://game/systems/health_component.gd")
 const HEALTH_BAR_SCRIPT: Script = preload("res://game/ui/health_bar_2d.gd")
 
-const GRID_SIZE: int = 1000
+const DEFAULT_MAP_SIZE_TILES: int = 500
 const TILE_SIZE: int = 32
 const TERRITORY_SIZE: int = 20
 const TERRITORY_GRID_COLUMNS: int = 4
@@ -18,6 +19,7 @@ const LOCAL_TERRITORY_ZOOM: Vector2 = Vector2(0.8, 0.8)
 const TEST_OVERVIEW_ZOOM: Vector2 = Vector2(0.75, 0.75)
 const UNIT_STATE_INTERVAL: float = 0.1
 const FOG_UPDATE_INTERVAL: float = 0.15
+const SAVE_CHECKPOINT_INTERVAL: float = 5.0
 const DRAG_THRESHOLD_PIXELS: float = 7.0
 const EXPLORER_BUILD_ZOOM: Vector2 = Vector2(0.42, 0.42)
 const TREE_SCENE: PackedScene = preload("res://game/world/tree.tscn")
@@ -25,6 +27,7 @@ const STONE_SCENE: PackedScene = preload("res://game/world/stone.tscn")
 const IRON_DEPOSIT_SCENE: PackedScene = preload("res://game/world/iron_deposit.tscn")
 const TREASURE_CHEST_SCENE: PackedScene = preload("res://game/world/treasure_chest.tscn")
 const WILD_MONSTER_SCENE: PackedScene = preload("res://game/world/wild_monster.tscn")
+const WORLD_BOSS_SCENE: PackedScene = preload("res://game/world/world_boss.tscn")
 const TERRITORY_SCENE: PackedScene = preload("res://game/world/player_territory.tscn")
 const PLAYER_BASE_SCENE: PackedScene = preload("res://game/world/player_base.tscn")
 const PRODUCTION_BUILDING_SCENE: PackedScene = preload("res://game/world/production_building.tscn")
@@ -67,14 +70,29 @@ const STONE_REWARD: int = 8
 const MINERAL_REWARDS: Dictionary = {&"iron": 6}
 const CHEST_REWARDS: Dictionary = {"gold": 30, "iron": 2, "summon_token": 1, "skill_experience": 4, "experience": 10}
 const MONSTER_DROP_REWARDS: Dictionary = {"iron": 4, "summon_token": 1, "skill_experience": 6, "experience": 20}
+const WORLD_BOSS_REWARDS: Dictionary = {"gold": 300, "iron": 40, "summon_token": 5, "skill_experience": 80, "experience": 250}
 const TREE_REGROW_SECONDS: float = 60.0
 const HERO_INITIAL_SUMMON_COST: int = 2
 const HERO_REPLACEMENT_COST: int = 1
-const WILD_MONSTER_CELLS: Array[Vector2i] = [
-	Vector2i(87, 69), Vector2i(87, 91), Vector2i(51, 70),
-	Vector2i(125, 70), Vector2i(69, 50), Vector2i(105, 50),
-]
-const AI_EXPANSION_RECT: Rect2i = Rect2i(Vector2i(96, 90), Vector2i(TERRITORY_SIZE, TERRITORY_SIZE))
+const WILD_MONSTER_COUNT: int = 5
+const WILD_MONSTER_FOOTPRINT_SIZE: Vector2i = Vector2i(2, 2)
+const WILD_MONSTER_SPAWN_REGION_MARGIN_TILES: int = 28
+const WILD_MONSTER_TERRITORY_CLEARANCE_TILES: int = 4
+const WILD_MONSTER_RESOURCE_CLEARANCE_TILES: int = 1
+const WILD_MONSTER_MIN_SPACING_TILES: int = 10
+const WILD_MONSTER_MAP_MARGIN_TILES: int = 4
+const WILD_MONSTER_MAX_RANDOM_SPAWN_ATTEMPTS: int = 2048
+const WILD_MONSTER_SPAWN_SEED_SALT: int = 0x4D3A91C7
+const WORLD_BOSS_ID: int = 1
+const WORLD_BOSS_FOOTPRINT_SIZE: Vector2i = Vector2i(3, 3)
+const WORLD_BOSS_MIN_RING_TILES: int = 24
+const WORLD_BOSS_MAX_RING_TILES: int = 52
+const WORLD_BOSS_RESOURCE_CLEARANCE_TILES: int = 2
+const WORLD_BOSS_ELITE_CLEARANCE_TILES: int = 14
+const WORLD_BOSS_MAX_RANDOM_SPAWN_ATTEMPTS: int = 4096
+const WORLD_BOSS_SPAWN_SEED_SALT: int = 0x2A76D3E1
+const DEVELOPER_SPAWN_BOSS: StringName = &"boss"
+const DEVELOPER_SPAWN_ELITE: StringName = &"elite"
 const AI_SCOUT_OFFSETS_TILES: Array[Vector2i] = [
 	Vector2i(0, -32), Vector2i(32, 0), Vector2i(0, 32), Vector2i(-32, 0),
 	Vector2i(24, -24), Vector2i(24, 24), Vector2i(-24, 24), Vector2i(-24, -24),
@@ -94,6 +112,7 @@ const STREAMED_CHEST_ID_OFFSET: int = 1000000
 @onready var base_container: Node2D = $Bases
 @onready var building_container: Node2D = $Buildings
 @onready var wild_monster_container: Node2D = $WildMonsters
+@onready var world_boss_container: Node2D = $WorldBosses
 @onready var tree_container: Node2D = $Trees
 @onready var mineable_container: Node2D = $Mineables
 @onready var stone_container: Node2D = $Mineables/Stones
@@ -105,7 +124,11 @@ const STREAMED_CHEST_ID_OFFSET: int = 1000000
 @onready var world_resource_streamer: Node = $WorldResourceStreamer
 @onready var resource_manager: Node = $ResourceManager
 @onready var lan_session: Node = $LanSession
+@onready var game_save_manager: Node = $GameSaveManager
 @onready var resource_hud: CanvasLayer = $ResourceHUD
+@onready var boss_health_hud: BossHealthHud = $BossHealthHUD
+@onready var attack_alert_hud: AttackAlertHud = $AttackAlertHUD
+@onready var tactical_map: TacticalMap = $TacticalMap
 @onready var developer_panel: DeveloperPanel = $DeveloperPanel
 @onready var unit_command_panel: UnitCommandPanel = $UnitCommandPanel
 @onready var ai_controller: SimpleAIController = $SimpleAIController
@@ -123,6 +146,8 @@ var _network_buildings: Dictionary[int, ProductionBuilding] = {}
 var _pending_structure_job_by_unit_id: Dictionary[int, Dictionary] = {}
 var _builder_unit_id_by_building_id: Dictionary[int, int] = {}
 var _wild_monsters: Dictionary[int, WildMonster] = {}
+var _world_boss: WorldBoss
+var _world_boss_defeated: bool = false
 var _combat_chests: Dictionary[int, Node2D] = {}
 var _selected_unit_ids: Array[int] = []
 var _selected_enemy_target: HealthComponent
@@ -144,8 +169,10 @@ var _active_player_base: PlayerBase
 var _multiplayer_mode: bool = false
 var _game_started: bool = false
 var _multiplayer_snapshot: Dictionary = {}
+var _map_size_tiles: int = DEFAULT_MAP_SIZE_TILES
 var _resource_abundance: int = RESOURCE_STANDARD
 var _resource_seed: int = 1
+var _wild_enemy_difficulty: int = WildEnemyDifficulty.Level.NORMAL
 var _full_vision: bool = false
 var _dragging_selection: bool = false
 var _drag_start_screen: Vector2 = Vector2.ZERO
@@ -177,26 +204,33 @@ var _structure_preview_building_id: StringName = &""
 var _structure_preview_rect: Rect2i = Rect2i()
 var _preview_camera_position: Vector2 = Vector2.ZERO
 var _preview_camera_zoom: Vector2 = Vector2.ONE
+var _developer_spawn_kind: StringName = &""
+var _save_checkpoint_elapsed: float = 0.0
+var _active_save_game_id: String = ""
+var _active_save_revision: int = 0
+var _latest_multiplayer_record: Dictionary = {}
+var _quit_after_save_checkpoint: bool = false
+var _return_to_menu_after_save_checkpoint: bool = false
 
 func _ready() -> void:
 	_build_ground_tileset()
-	_fill_ground()
+	_configure_map_size(DEFAULT_MAP_SIZE_TILES)
 	_setup_territories(2)
 	_setup_legacy_editor_bases()
-	world_resource_streamer.call(&"configure", GRID_SIZE, TILE_SIZE, tree_container, stone_container, rare_mineral_container)
-	map_camera.set("map_size", Vector2(GRID_SIZE * TILE_SIZE, GRID_SIZE * TILE_SIZE))
 	map_camera.zoom = TEST_OVERVIEW_ZOOM
 	map_camera.position = _territory_overview_position()
 	if Engine.is_editor_hint():
 		_spawn_fair_resources()
 		return
-	world_pathfinder.configure(Vector2i(GRID_SIZE, GRID_SIZE), TILE_SIZE)
+	get_tree().auto_accept_quit = false
 	_rebuild_navigation_obstacles()
 	legacy_base.hide()
 	legacy_base_interaction.input_pickable = false
 	legacy_test_base_container.hide()
 	fog_of_war.hide()
 	resource_hud.call(&"bind", resource_manager)
+	attack_alert_hud.focus_requested.connect(_focus_camera_at_world_position)
+	tactical_map.camera_jump_requested.connect(_focus_camera_at_world_position)
 	base_action_menu.action_selected.connect(_on_base_action_selected)
 	summon_card_menu.unit_selected.connect(_on_summon_card_selected)
 	hero_summon_panel.hero_selected.connect(_on_hero_panel_selected)
@@ -204,6 +238,7 @@ func _ready() -> void:
 	developer_panel.full_vision_changed.connect(_on_full_vision_changed)
 	developer_panel.ai_paused_changed.connect(_on_ai_paused_changed)
 	developer_panel.infinite_resources_changed.connect(_on_infinite_resources_changed)
+	developer_panel.test_enemy_spawn_requested.connect(_on_developer_enemy_spawn_requested)
 	unit_command_panel.work_toggled.connect(_on_machine_work_toggled)
 	unit_command_panel.upgrade_requested.connect(_on_machine_upgrade_requested)
 	unit_command_panel.build_preview_requested.connect(_on_build_preview_requested)
@@ -220,10 +255,14 @@ func _ready() -> void:
 	ai_controller.think_requested.connect(_on_ai_think)
 	main_menu.start_requested.connect(_on_start_requested)
 	main_menu.multiplayer_requested.connect(_on_multiplayer_requested)
-	lan_lobby.call(&"bind", lan_session)
+	main_menu.continue_single_requested.connect(_on_continue_single_requested)
+	main_menu.bind(game_save_manager)
+	lan_lobby.call(&"bind", lan_session, game_save_manager)
 	lan_lobby.connect(&"back_requested", _on_lobby_back_requested)
 	lan_lobby.connect(&"game_start_requested", _on_multiplayer_game_start_requested)
 	pause_menu.return_to_main_menu.connect(_on_return_to_main_menu)
+	pause_menu.exit_requested.connect(_on_exit_requested)
+	lan_session.connect(&"resume_save_received", _on_resume_save_received)
 	_show_main_menu()
 
 func _process(delta: float) -> void:
@@ -243,9 +282,21 @@ func _process(delta: float) -> void:
 	if _fog_elapsed >= FOG_UPDATE_INTERVAL:
 		_fog_elapsed = 0.0
 		_refresh_fog()
+	_save_checkpoint_elapsed += delta
+	if _save_checkpoint_elapsed >= SAVE_CHECKPOINT_INTERVAL:
+		_save_checkpoint_elapsed = 0.0
+		if _automatic_saves_allowed() and (not _multiplayer_mode or _has_gameplay_authority()):
+			_store_authoritative_checkpoint(_multiplayer_mode)
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and not Engine.is_editor_hint():
+		call_deferred("_on_exit_requested")
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not _game_started:
+		return
+	if _handle_developer_enemy_spawn_input(event):
+		get_viewport().set_input_as_handled()
 		return
 	if _build_preview_unit_id > 0 and event is InputEventKey:
 		var key_event: InputEventKey = event as InputEventKey
@@ -360,6 +411,13 @@ func _build_ground_tileset() -> void:
 	ground_layer.clear()
 	ground_layer.tile_set = null
 
+func _configure_map_size(requested_size_tiles: int) -> void:
+	_map_size_tiles = MapSizeSettingData.normalize_tile_count(requested_size_tiles)
+	_fill_ground()
+	world_resource_streamer.call(&"configure", _map_size_tiles, TILE_SIZE, tree_container, stone_container, rare_mineral_container)
+	map_camera.set("map_size", Vector2(_map_size_tiles * TILE_SIZE, _map_size_tiles * TILE_SIZE))
+	world_pathfinder.configure(Vector2i(_map_size_tiles, _map_size_tiles), TILE_SIZE)
+
 func _fill_ground() -> void:
 	var existing: Sprite2D = ground_layer.get_node_or_null("RepeatedGrass") as Sprite2D
 	if existing == null:
@@ -371,7 +429,7 @@ func _fill_ground() -> void:
 	existing.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	existing.centered = false
 	existing.region_enabled = true
-	existing.region_rect = Rect2(Vector2.ZERO, Vector2(GRID_SIZE * TILE_SIZE, GRID_SIZE * TILE_SIZE))
+	existing.region_rect = Rect2(Vector2.ZERO, Vector2(_map_size_tiles * TILE_SIZE, _map_size_tiles * TILE_SIZE))
 
 func _setup_territories(territory_count: int) -> void:
 	var clamped_count: int = clampi(territory_count, 2, MAX_TERRITORIES)
@@ -388,10 +446,14 @@ func _setup_territories(territory_count: int) -> void:
 
 func _territory_origin(territory_id: int) -> Vector2i:
 	var index: int = maxi(0, territory_id - 1)
-	return Vector2i(
-		TERRITORY_GRID_MARGIN + index % TERRITORY_GRID_COLUMNS * TERRITORY_GRID_STRIDE,
-		TERRITORY_GRID_MARGIN + floori(float(index) / float(TERRITORY_GRID_COLUMNS)) * TERRITORY_GRID_STRIDE
+	var minimum_two_player_span: int = TERRITORY_SIZE * 2 + TERRITORY_GRID_STRIDE - TERRITORY_SIZE
+	var dynamic_margin: int = mini(TERRITORY_GRID_MARGIN, maxi(4, floori(float(_map_size_tiles - minimum_two_player_span) * 0.5)))
+	var raw_origin: Vector2i = Vector2i(
+		dynamic_margin + index % TERRITORY_GRID_COLUMNS * TERRITORY_GRID_STRIDE,
+		dynamic_margin + floori(float(index) / float(TERRITORY_GRID_COLUMNS)) * TERRITORY_GRID_STRIDE
 	)
+	var maximum_origin: int = maxi(0, _map_size_tiles - TERRITORY_SIZE)
+	return Vector2i(clampi(raw_origin.x, 0, maximum_origin), clampi(raw_origin.y, 0, maximum_origin))
 
 func _territory_color(territory_id: int) -> Color:
 	return TERRITORY_COLORS[(territory_id - 1) % TERRITORY_COLORS.size()]
@@ -605,7 +667,7 @@ func _territory_overview_position() -> Vector2:
 	return position_sum / float(_territory_rects.size())
 
 func _map_center() -> Vector2:
-	return Vector2(GRID_SIZE * TILE_SIZE / 2.0, GRID_SIZE * TILE_SIZE / 2.0)
+	return Vector2(_map_size_tiles * TILE_SIZE / 2.0, _map_size_tiles * TILE_SIZE / 2.0)
 
 func _on_player_base_selected(player_base: PlayerBase) -> void:
 	if not _game_started or player_base.owner_peer_id != _local_peer_id:
@@ -1031,6 +1093,26 @@ func _rpc_play_monster_skill_visual(monster_id: int, target_position: Vector2) -
 	if is_instance_valid(monster):
 		monster.play_skill_visual(target_position)
 
+func _on_boss_attack_visual_requested(boss_id: int, target_position: Vector2) -> void:
+	if not _has_gameplay_authority() or not _multiplayer_mode:
+		return
+	_rpc_play_boss_attack_visual.rpc(boss_id, target_position)
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_play_boss_attack_visual(boss_id: int, target_position: Vector2) -> void:
+	if is_instance_valid(_world_boss) and _world_boss.boss_id == boss_id:
+		_world_boss.play_attack_visual(target_position)
+
+func _on_boss_skill_visual_requested(boss_id: int, skill_id: StringName, positions: PackedVector2Array) -> void:
+	if not _has_gameplay_authority() or not _multiplayer_mode:
+		return
+	_rpc_play_boss_skill_visual.rpc(boss_id, str(skill_id), positions)
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_play_boss_skill_visual(boss_id: int, skill_id_value: String, positions: PackedVector2Array) -> void:
+	if is_instance_valid(_world_boss) and _world_boss.boss_id == boss_id:
+		_world_boss.play_skill_visual(StringName(skill_id_value), positions)
+
 func _resolve_skill_visual_target(target_kind: StringName, target_id: int) -> Node2D:
 	match target_kind:
 		&"unit":
@@ -1041,6 +1123,8 @@ func _resolve_skill_visual_target(target_kind: StringName, target_id: int) -> No
 			return _player_base_by_territory_id.get(target_id) as Node2D
 		&"monster":
 			return _wild_monsters.get(target_id) as Node2D
+		&"boss":
+			return _world_boss if is_instance_valid(_world_boss) and _world_boss.boss_id == target_id else null
 	return null
 
 func _apply_unit_faction_tint(unit: Node2D, owner_peer_id: int) -> void:
@@ -1615,6 +1699,9 @@ func _get_damageable_by_identity(target_kind: StringName, target_id: int) -> Hea
 			target_root = _combat_chests.get(target_id) as Node2D
 			if not is_instance_valid(target_root) and target_id >= STREAMED_CHEST_ID_OFFSET and _has_gameplay_authority():
 				target_root = _materialize_streamed_chest(target_id - STREAMED_CHEST_ID_OFFSET)
+		&"boss":
+			if is_instance_valid(_world_boss) and _world_boss.boss_id == target_id:
+				target_root = _world_boss
 	if not is_instance_valid(target_root):
 		return null
 	return target_root.get_node_or_null("HealthComponent") as HealthComponent
@@ -1724,7 +1811,7 @@ func _build_formation_assignments(unit_ids: Array[int], center: Vector2, spacing
 		return assignments
 	var columns: int = ceili(sqrt(float(unit_ids.size())))
 	var rows: int = ceili(float(unit_ids.size()) / float(columns))
-	var map_max: float = float(GRID_SIZE * TILE_SIZE - 16)
+	var map_max: float = float(_map_size_tiles * TILE_SIZE - 16)
 	for index: int in unit_ids.size():
 		var column: int = index % columns
 		var row: int = floori(float(index) / float(columns))
@@ -1771,6 +1858,7 @@ func _broadcast_unit_states() -> void:
 			if unit is TreantUnit:
 				state["star_level"] = (unit as TreantUnit).star_level
 				state["combat_status"] = (unit as TreantUnit).get_combat_status_network_state()
+				state["in_combat"] = (unit as TreantUnit).is_in_combat()
 		else:
 			state["working"] = bool(unit.call(&"is_working"))
 			state["work_enabled"] = bool(unit.get("work_enabled"))
@@ -1807,6 +1895,18 @@ func _broadcast_unit_states() -> void:
 				"id": monster_id,
 				"health": monster_health.current_health,
 				"position": monster.global_position,
+				"in_combat": monster.is_in_combat(),
+			})
+	if is_instance_valid(_world_boss):
+		var boss_health: HealthComponent = _world_boss.get_node_or_null("HealthComponent") as HealthComponent
+		if is_instance_valid(boss_health):
+			structure_states.append({
+				"kind": "boss",
+				"id": _world_boss.boss_id,
+				"health": boss_health.current_health,
+				"position": _world_boss.global_position,
+				"phase": _world_boss.get_phase(),
+				"in_combat": _world_boss.is_in_combat(),
 			})
 	_rpc_apply_structure_states.rpc(structure_states)
 
@@ -1819,7 +1919,20 @@ func _rpc_apply_unit_states(states: Array) -> void:
 		if not is_instance_valid(unit):
 			continue
 		if unit is TreantUnit or unit is ExplorerUnit:
-			unit.call(&"apply_network_state", state.get("position", unit.global_position), state.get("target", unit.global_position), bool(state.get("moving", false)))
+			if unit is TreantUnit:
+				(unit as TreantUnit).apply_network_state(
+					state.get("position", unit.global_position) as Vector2,
+					state.get("target", unit.global_position) as Vector2,
+					bool(state.get("moving", false)),
+					bool(state.get("in_combat", false))
+				)
+			else:
+				unit.call(
+					&"apply_network_state",
+					state.get("position", unit.global_position),
+					state.get("target", unit.global_position),
+					bool(state.get("moving", false))
+				)
 			if unit is TreantUnit:
 				var combat_unit: TreantUnit = unit as TreantUnit
 				if combat_unit.definition != null and combat_unit.definition.category == UnitDefinition.Category.COMBAT:
@@ -1846,7 +1959,18 @@ func _rpc_apply_structure_states(states: Array) -> void:
 			var monster: WildMonster = _wild_monsters.get(int(state.get("id", 0))) as WildMonster
 			target = monster
 			if is_instance_valid(monster):
-				monster.apply_network_state(state.get("position", monster.global_position) as Vector2)
+				monster.apply_network_state(
+					state.get("position", monster.global_position) as Vector2,
+					bool(state.get("in_combat", false))
+				)
+		elif str(state.get("kind", "")) == "boss":
+			target = _world_boss
+			if is_instance_valid(_world_boss):
+				_world_boss.apply_network_state(
+					state.get("position", _world_boss.global_position) as Vector2,
+					int(state.get("phase", _world_boss.get_phase())),
+					bool(state.get("in_combat", false))
+				)
 		else:
 			target = _network_buildings.get(int(state.get("id", 0))) as Node2D
 		if not is_instance_valid(target):
@@ -1894,6 +2018,12 @@ func _refresh_entity_visibility() -> void:
 	for monster: WildMonster in _wild_monsters.values():
 		if is_instance_valid(monster):
 			monster.visible = fog_of_war.is_world_position_visible(monster.global_position)
+	if is_instance_valid(_world_boss):
+		var boss_in_vision: bool = fog_of_war.is_world_rect_visible(_world_boss.get_footprint_rect(TILE_SIZE))
+		_world_boss.visible = boss_in_vision
+		boss_health_hud.set_encounter_visible(boss_in_vision)
+	else:
+		boss_health_hud.set_encounter_visible(false)
 	for territory_index: int in territory_container.get_child_count():
 		var territory: Node2D = territory_container.get_child(territory_index) as Node2D
 		var territory_id: int = territory_index + 1
@@ -1924,6 +2054,131 @@ func _is_territory_visible(rect: Rect2i) -> bool:
 			return true
 	return false
 
+func _handle_developer_enemy_spawn_input(event: InputEvent) -> bool:
+	if _developer_spawn_kind.is_empty():
+		return false
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		if key_event.pressed and not key_event.echo and (key_event.keycode == KEY_ESCAPE or key_event.physical_keycode == KEY_ESCAPE):
+			_cancel_developer_enemy_spawn(true)
+			return true
+		return false
+	if event is InputEventMouseMotion:
+		_update_developer_enemy_spawn_preview(get_global_mouse_position())
+		return true
+	if event is not InputEventMouseButton:
+		return false
+	var mouse_event := event as InputEventMouseButton
+	if mouse_event.button_index == MOUSE_BUTTON_RIGHT and mouse_event.pressed:
+		_cancel_developer_enemy_spawn(true)
+		return true
+	if mouse_event.button_index != MOUSE_BUTTON_LEFT:
+		return false
+	if mouse_event.pressed and not _pointer_is_over_blocking_ui():
+		_confirm_developer_enemy_spawn(get_global_mouse_position())
+	return true
+
+func _on_developer_enemy_spawn_requested(enemy_kind: StringName) -> void:
+	if enemy_kind != DEVELOPER_SPAWN_BOSS and enemy_kind != DEVELOPER_SPAWN_ELITE:
+		return
+	if not _has_gameplay_authority():
+		_notify_peer(_local_peer_id, "只有房主可以生成测试敌人")
+		return
+	_cancel_build_preview()
+	_cancel_structure_preview()
+	_developer_spawn_kind = enemy_kind
+	_update_developer_enemy_spawn_preview(get_global_mouse_position())
+	var display_name: String = "BOSS" if enemy_kind == DEVELOPER_SPAWN_BOSS else "精英怪"
+	_notify_peer(_local_peer_id, "正在放置%s：左键确认，右键或 Esc 取消" % display_name)
+
+func _developer_enemy_spawn_rect_at(world_position: Vector2, enemy_kind: StringName) -> Rect2i:
+	var footprint: Vector2i = WORLD_BOSS_FOOTPRINT_SIZE if enemy_kind == DEVELOPER_SPAWN_BOSS else WILD_MONSTER_FOOTPRINT_SIZE
+	var center_cell := Vector2i(floori(world_position.x / TILE_SIZE), floori(world_position.y / TILE_SIZE))
+	return Rect2i(center_cell - Vector2i(footprint.x >> 1, footprint.y >> 1), footprint)
+
+func _developer_enemy_spawn_failure(cell_rect: Rect2i) -> String:
+	if cell_rect.position.x < 0 or cell_rect.position.y < 0 or cell_rect.end.x > _map_size_tiles or cell_rect.end.y > _map_size_tiles:
+		return "生成位置必须完整位于地图内"
+	if not world_pathfinder.is_cell_rect_walkable(cell_rect):
+		return "生成位置被基地、建筑或地图资源占用"
+	return ""
+
+func _update_developer_enemy_spawn_preview(world_position: Vector2) -> void:
+	if _developer_spawn_kind.is_empty():
+		command_overlay.hide_enemy_spawn_preview()
+		return
+	var cell_rect: Rect2i = _developer_enemy_spawn_rect_at(world_position, _developer_spawn_kind)
+	command_overlay.show_enemy_spawn_preview(
+		cell_rect,
+		TILE_SIZE,
+		_developer_enemy_spawn_failure(cell_rect).is_empty(),
+		_developer_spawn_kind == DEVELOPER_SPAWN_BOSS
+	)
+
+func _confirm_developer_enemy_spawn(world_position: Vector2) -> void:
+	if _developer_spawn_kind.is_empty() or not _has_gameplay_authority():
+		return
+	var enemy_kind: StringName = _developer_spawn_kind
+	var cell_rect: Rect2i = _developer_enemy_spawn_rect_at(world_position, enemy_kind)
+	var failure: String = _developer_enemy_spawn_failure(cell_rect)
+	if not failure.is_empty():
+		_update_developer_enemy_spawn_preview(world_position)
+		_notify_peer(_local_peer_id, failure)
+		return
+	var spawn_data: Dictionary
+	if enemy_kind == DEVELOPER_SPAWN_BOSS:
+		spawn_data = {
+			"boss_id": WORLD_BOSS_ID,
+			"position": _rect_world_center(cell_rect),
+			"cell_rect": cell_rect,
+		}
+	else:
+		spawn_data = {
+			"monster_id": _next_monster_id,
+			"position": _rect_world_center(cell_rect),
+			"cell_rect": cell_rect,
+		}
+	_apply_developer_enemy_spawn(enemy_kind, spawn_data)
+	if _multiplayer_mode:
+		_rpc_apply_developer_enemy_spawn.rpc(str(enemy_kind), spawn_data)
+	_cancel_developer_enemy_spawn(false)
+	var display_name: String = "BOSS" if enemy_kind == DEVELOPER_SPAWN_BOSS else "精英怪"
+	_notify_peer(_local_peer_id, "已在选中位置生成%s" % display_name)
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_apply_developer_enemy_spawn(enemy_kind_value: String, spawn_data: Dictionary) -> void:
+	_apply_developer_enemy_spawn(StringName(enemy_kind_value), spawn_data)
+
+func _apply_developer_enemy_spawn(enemy_kind: StringName, spawn_data: Dictionary) -> void:
+	match enemy_kind:
+		DEVELOPER_SPAWN_BOSS:
+			_clear_world_boss_for_developer()
+			_world_boss_defeated = false
+			_spawn_network_boss(spawn_data)
+		DEVELOPER_SPAWN_ELITE:
+			_spawn_network_monster(spawn_data)
+	_refresh_entity_visibility()
+
+func _clear_world_boss_for_developer() -> void:
+	var previous_boss: WorldBoss = _world_boss
+	_world_boss = null
+	_world_boss_defeated = false
+	boss_health_hud.unbind_boss()
+	if not is_instance_valid(previous_boss):
+		return
+	if is_instance_valid(_selected_enemy_target) and _selected_enemy_target.target_root == previous_boss:
+		_clear_selected_enemy_target()
+	previous_boss.free()
+
+func _cancel_developer_enemy_spawn(show_notice: bool = false) -> void:
+	if _developer_spawn_kind.is_empty():
+		command_overlay.hide_enemy_spawn_preview()
+		return
+	_developer_spawn_kind = &""
+	command_overlay.hide_enemy_spawn_preview()
+	if show_notice:
+		_notify_peer(_local_peer_id, "已取消生成测试敌人")
+
 func _on_full_vision_changed(enabled: bool) -> void:
 	_full_vision = enabled
 	_refresh_fog()
@@ -1935,6 +2190,7 @@ func _on_build_preview_requested(unit_id: int) -> void:
 	var definition: UnitDefinition = unit.get("definition") as UnitDefinition
 	if definition == null or not definition.can_build_base:
 		return
+	_cancel_developer_enemy_spawn(false)
 	var center_cell: Vector2i = Vector2i(floori(unit.global_position.x / TILE_SIZE), floori(unit.global_position.y / TILE_SIZE))
 	var rect: Rect2i = Rect2i(center_cell - Vector2i(TERRITORY_SIZE >> 1, TERRITORY_SIZE >> 1), Vector2i(TERRITORY_SIZE, TERRITORY_SIZE))
 	if not _is_valid_expansion_rect(rect):
@@ -2069,7 +2325,7 @@ func _apply_new_territory(territory_data: Dictionary) -> void:
 func _is_valid_expansion_rect(rect: Rect2i) -> bool:
 	if rect.size != Vector2i(TERRITORY_SIZE, TERRITORY_SIZE):
 		return false
-	if rect.position.x < 0 or rect.position.y < 0 or rect.end.x > GRID_SIZE or rect.end.y > GRID_SIZE:
+	if rect.position.x < 0 or rect.position.y < 0 or rect.end.x > _map_size_tiles or rect.end.y > _map_size_tiles:
 		return false
 	for existing: Rect2i in _territory_rects:
 		if existing.intersects(rect):
@@ -2084,6 +2340,7 @@ func _on_structure_preview_requested(unit_id: int, building_definition_id: Strin
 	var unit_definition := builder.get("definition") as UnitDefinition
 	if unit_definition == null or not unit_definition.can_build_structures:
 		return
+	_cancel_developer_enemy_spawn(false)
 	var rect := _structure_rect_at(builder.global_position, definition.footprint_tiles)
 	_structure_preview_unit_id = unit_id
 	_structure_preview_building_id = building_definition_id
@@ -2512,8 +2769,7 @@ func _spawn_wild_monsters() -> void:
 	_clear_children(wild_monster_container)
 	_wild_monsters.clear()
 	_next_monster_id = 1
-	for center_cell: Vector2i in WILD_MONSTER_CELLS:
-		var footprint_rect := Rect2i(center_cell - Vector2i.ONE, Vector2i(2, 2))
+	for footprint_rect: Rect2i in _build_wild_monster_spawn_rects(_resource_seed):
 		var spawn_data: Dictionary = {
 			"monster_id": _next_monster_id,
 			"position": _rect_world_center(footprint_rect),
@@ -2522,22 +2778,88 @@ func _spawn_wild_monsters() -> void:
 		_next_monster_id += 1
 		_spawn_network_monster(spawn_data)
 
+func _build_wild_monster_spawn_rects(spawn_seed: int) -> Array[Rect2i]:
+	var spawn_rects: Array[Rect2i] = []
+	var spawn_bounds: Rect2i = _wild_monster_spawn_bounds()
+	var maximum_top_left: Vector2i = spawn_bounds.end - WILD_MONSTER_FOOTPRINT_SIZE
+	if maximum_top_left.x < spawn_bounds.position.x or maximum_top_left.y < spawn_bounds.position.y:
+		return spawn_rects
+	var blocked_cells: Dictionary[Vector2i, bool] = {}
+	var obstacle_cells: Array[Vector2i] = world_resource_streamer.call(&"get_navigation_obstacle_cells") as Array[Vector2i]
+	for obstacle_cell: Vector2i in obstacle_cells:
+		blocked_cells[obstacle_cell] = true
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = spawn_seed ^ WILD_MONSTER_SPAWN_SEED_SALT
+	var attempts: int = 0
+	while spawn_rects.size() < WILD_MONSTER_COUNT and attempts < WILD_MONSTER_MAX_RANDOM_SPAWN_ATTEMPTS:
+		attempts += 1
+		var candidate_position := Vector2i(
+			rng.randi_range(spawn_bounds.position.x, maximum_top_left.x),
+			rng.randi_range(spawn_bounds.position.y, maximum_top_left.y)
+		)
+		var candidate_rect := Rect2i(candidate_position, WILD_MONSTER_FOOTPRINT_SIZE)
+		if _is_valid_wild_monster_spawn_rect(candidate_rect, blocked_cells, spawn_rects):
+			spawn_rects.append(candidate_rect)
+	if spawn_rects.size() < WILD_MONSTER_COUNT:
+		for y: int in range(spawn_bounds.position.y, maximum_top_left.y + 1):
+			for x: int in range(spawn_bounds.position.x, maximum_top_left.x + 1):
+				var fallback_rect := Rect2i(Vector2i(x, y), WILD_MONSTER_FOOTPRINT_SIZE)
+				if _is_valid_wild_monster_spawn_rect(fallback_rect, blocked_cells, spawn_rects):
+					spawn_rects.append(fallback_rect)
+					if spawn_rects.size() == WILD_MONSTER_COUNT:
+						return spawn_rects
+	return spawn_rects
+
+func _wild_monster_spawn_bounds() -> Rect2i:
+	var minimum: Vector2i = Vector2i.ONE * WILD_MONSTER_MAP_MARGIN_TILES
+	var maximum: Vector2i = Vector2i.ONE * (_map_size_tiles - WILD_MONSTER_MAP_MARGIN_TILES)
+	if not _territory_rects.is_empty():
+		minimum = _territory_rects[0].position
+		maximum = _territory_rects[0].end
+		for territory_rect: Rect2i in _territory_rects:
+			minimum = Vector2i(mini(minimum.x, territory_rect.position.x), mini(minimum.y, territory_rect.position.y))
+			maximum = Vector2i(maxi(maximum.x, territory_rect.end.x), maxi(maximum.y, territory_rect.end.y))
+		minimum -= Vector2i.ONE * WILD_MONSTER_SPAWN_REGION_MARGIN_TILES
+		maximum += Vector2i.ONE * WILD_MONSTER_SPAWN_REGION_MARGIN_TILES
+		minimum = Vector2i(maxi(WILD_MONSTER_MAP_MARGIN_TILES, minimum.x), maxi(WILD_MONSTER_MAP_MARGIN_TILES, minimum.y))
+		maximum = Vector2i(mini(_map_size_tiles - WILD_MONSTER_MAP_MARGIN_TILES, maximum.x), mini(_map_size_tiles - WILD_MONSTER_MAP_MARGIN_TILES, maximum.y))
+	return Rect2i(minimum, maximum - minimum)
+
+func _is_valid_wild_monster_spawn_rect(
+	candidate_rect: Rect2i,
+	blocked_cells: Dictionary[Vector2i, bool],
+	spawn_rects: Array[Rect2i]
+) -> bool:
+	for territory_rect: Rect2i in _territory_rects:
+		if territory_rect.grow(WILD_MONSTER_TERRITORY_CLEARANCE_TILES).intersects(candidate_rect):
+			return false
+	for existing_rect: Rect2i in spawn_rects:
+		if existing_rect.grow(WILD_MONSTER_MIN_SPACING_TILES).intersects(candidate_rect):
+			return false
+	var clearance_rect: Rect2i = candidate_rect.grow(WILD_MONSTER_RESOURCE_CLEARANCE_TILES)
+	for y: int in range(clearance_rect.position.y, clearance_rect.end.y):
+		for x: int in range(clearance_rect.position.x, clearance_rect.end.x):
+			if blocked_cells.has(Vector2i(x, y)):
+				return false
+	return true
+
 func _spawn_network_monster(spawn_data: Dictionary) -> void:
 	var monster_id: int = int(spawn_data.get("monster_id", 0))
 	if monster_id <= 0 or _wild_monsters.has(monster_id):
 		return
+	_next_monster_id = maxi(_next_monster_id, monster_id + 1)
 	var monster: WildMonster = WILD_MONSTER_SCENE.instantiate() as WildMonster
 	monster.name = "WildMonster_%d" % monster_id
 	monster.position = spawn_data.get("position", Vector2.ZERO) as Vector2
 	wild_monster_container.add_child(monster)
-	monster.configure(monster_id, _has_gameplay_authority())
+	monster.configure(monster_id, _has_gameplay_authority(), _wild_enemy_difficulty)
 	monster.set_meta(&"cell_rect", spawn_data.get("cell_rect", Rect2i()) as Rect2i)
 	monster.setup_combat_context(_get_monster_targets, world_pathfinder.find_path, TILE_SIZE)
 	monster.attack_visual_requested.connect(_on_monster_attack_visual_requested)
 	monster.skill_visual_requested.connect(_on_monster_skill_visual_requested)
 	_wild_monsters[monster_id] = monster
 	var health: HealthComponent = _attach_vitals(
-		monster, 0, WildMonster.MAX_HEALTH, WildMonster.DEFENSE, 0.0, 0.0, 0.0,
+		monster, 0, monster.get_max_health(), WildMonster.DEFENSE, 0.0, 0.0, 0.0,
 		Vector2(0.0, -75.0), 86.0, &"monster", monster_id
 	)
 	health.combat_radius = 44.0
@@ -2548,6 +2870,115 @@ func _get_monster_targets() -> Array[HealthComponent]:
 		if component.owner_peer_id > 0 and component.is_alive():
 			result.append(component)
 	return result
+
+func _spawn_world_boss() -> void:
+	_clear_children(world_boss_container)
+	boss_health_hud.unbind_boss()
+	_world_boss = null
+	if _world_boss_defeated:
+		return
+	var footprint_rect: Rect2i = _build_world_boss_spawn_rect(_resource_seed)
+	if footprint_rect.size != WORLD_BOSS_FOOTPRINT_SIZE:
+		push_error("世界BOSS巢穴未找到合法的3×3出生位置")
+		return
+	_spawn_network_boss({
+		"boss_id": WORLD_BOSS_ID,
+		"position": _rect_world_center(footprint_rect),
+		"cell_rect": footprint_rect,
+	})
+
+func _build_world_boss_spawn_rect(spawn_seed: int) -> Rect2i:
+	if _territory_rects.is_empty():
+		return Rect2i()
+	var cluster_rect: Rect2i = _territory_rects[0]
+	for territory_rect: Rect2i in _territory_rects:
+		var minimum: Vector2i = Vector2i(mini(cluster_rect.position.x, territory_rect.position.x), mini(cluster_rect.position.y, territory_rect.position.y))
+		var maximum: Vector2i = Vector2i(maxi(cluster_rect.end.x, territory_rect.end.x), maxi(cluster_rect.end.y, territory_rect.end.y))
+		cluster_rect = Rect2i(minimum, maximum - minimum)
+	var outer_minimum: Vector2i = Vector2i(
+		maxi(WORLD_BOSS_FOOTPRINT_SIZE.x, cluster_rect.position.x - WORLD_BOSS_MAX_RING_TILES),
+		maxi(WORLD_BOSS_FOOTPRINT_SIZE.y, cluster_rect.position.y - WORLD_BOSS_MAX_RING_TILES)
+	)
+	var outer_maximum: Vector2i = Vector2i(
+		mini(_map_size_tiles - WORLD_BOSS_FOOTPRINT_SIZE.x, cluster_rect.end.x + WORLD_BOSS_MAX_RING_TILES),
+		mini(_map_size_tiles - WORLD_BOSS_FOOTPRINT_SIZE.y, cluster_rect.end.y + WORLD_BOSS_MAX_RING_TILES)
+	)
+	var outer_rect := Rect2i(outer_minimum, outer_maximum - outer_minimum)
+	var inner_rect: Rect2i = cluster_rect.grow(WORLD_BOSS_MIN_RING_TILES)
+	var maximum_top_left: Vector2i = outer_rect.end - WORLD_BOSS_FOOTPRINT_SIZE
+	if maximum_top_left.x < outer_rect.position.x or maximum_top_left.y < outer_rect.position.y:
+		return Rect2i()
+	var blocked_cells: Dictionary[Vector2i, bool] = {}
+	var obstacle_cells: Array[Vector2i] = world_resource_streamer.call(&"get_navigation_obstacle_cells") as Array[Vector2i]
+	for obstacle_cell: Vector2i in obstacle_cells:
+		blocked_cells[obstacle_cell] = true
+	var elite_rects: Array[Rect2i] = []
+	for monster: WildMonster in _wild_monsters.values():
+		if is_instance_valid(monster):
+			elite_rects.append(monster.get_meta(&"cell_rect", Rect2i()) as Rect2i)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = spawn_seed ^ WORLD_BOSS_SPAWN_SEED_SALT
+	for _attempt: int in range(WORLD_BOSS_MAX_RANDOM_SPAWN_ATTEMPTS):
+		var candidate := Rect2i(
+			Vector2i(
+				rng.randi_range(outer_rect.position.x, maximum_top_left.x),
+				rng.randi_range(outer_rect.position.y, maximum_top_left.y)
+			),
+			WORLD_BOSS_FOOTPRINT_SIZE
+		)
+		if _is_valid_world_boss_spawn_rect(candidate, inner_rect, blocked_cells, elite_rects):
+			return candidate
+	for y: int in range(outer_rect.position.y, maximum_top_left.y + 1):
+		for x: int in range(outer_rect.position.x, maximum_top_left.x + 1):
+			var fallback := Rect2i(Vector2i(x, y), WORLD_BOSS_FOOTPRINT_SIZE)
+			if _is_valid_world_boss_spawn_rect(fallback, inner_rect, blocked_cells, elite_rects):
+				return fallback
+	return Rect2i()
+
+func _is_valid_world_boss_spawn_rect(
+	candidate_rect: Rect2i,
+	inner_rect: Rect2i,
+	blocked_cells: Dictionary[Vector2i, bool],
+	elite_rects: Array[Rect2i]
+) -> bool:
+	if inner_rect.intersects(candidate_rect):
+		return false
+	for territory_rect: Rect2i in _territory_rects:
+		if territory_rect.intersects(candidate_rect):
+			return false
+	for elite_rect: Rect2i in elite_rects:
+		if elite_rect.grow(WORLD_BOSS_ELITE_CLEARANCE_TILES).intersects(candidate_rect):
+			return false
+	var clearance_rect: Rect2i = candidate_rect.grow(WORLD_BOSS_RESOURCE_CLEARANCE_TILES)
+	for y: int in range(clearance_rect.position.y, clearance_rect.end.y):
+		for x: int in range(clearance_rect.position.x, clearance_rect.end.x):
+			if blocked_cells.has(Vector2i(x, y)):
+				return false
+	return true
+
+func _spawn_network_boss(spawn_data: Dictionary) -> void:
+	if is_instance_valid(_world_boss) or _world_boss_defeated:
+		return
+	var boss: WorldBoss = WORLD_BOSS_SCENE.instantiate() as WorldBoss
+	boss.name = "WorldBoss_Xuanyu"
+	boss.position = spawn_data.get("position", Vector2.ZERO) as Vector2
+	world_boss_container.add_child(boss)
+	boss.configure(int(spawn_data.get("boss_id", WORLD_BOSS_ID)), _has_gameplay_authority(), _wild_enemy_difficulty)
+	boss.set_meta(&"cell_rect", spawn_data.get("cell_rect", Rect2i()) as Rect2i)
+	boss.setup_combat_context(
+		_get_monster_targets,
+		world_pathfinder.find_path_for_footprint.bind(WorldBoss.FOOTPRINT_TILES),
+		TILE_SIZE
+	)
+	boss.attack_visual_requested.connect(_on_boss_attack_visual_requested)
+	boss.skill_visual_requested.connect(_on_boss_skill_visual_requested)
+	_world_boss = boss
+	var health: HealthComponent = _attach_vitals(
+		boss, 0, boss.get_max_health(), WorldBoss.DEFENSE, 0.0, 0.0, 0.0,
+		Vector2.ZERO, 0.0, &"boss", boss.boss_id, false
+	)
+	health.combat_radius = WorldBoss.COMBAT_RADIUS
+	boss_health_hud.bind_boss(boss, health)
 
 func _structure_rect_at(world_position: Vector2, footprint_tiles: int) -> Rect2i:
 	var center_cell := Vector2i(floori(world_position.x / TILE_SIZE), floori(world_position.y / TILE_SIZE))
@@ -2702,10 +3133,17 @@ func _attach_vitals(
 	bar_offset: Vector2,
 	bar_width: float,
 	entity_kind: StringName,
-	entity_id: int
+	entity_id: int,
+	create_world_health_bar: bool = true
 ) -> HealthComponent:
 	var existing := root.get_node_or_null("HealthComponent") as HealthComponent
 	if is_instance_valid(existing):
+		root.set_meta(&"damageable_kind", entity_kind)
+		root.set_meta(&"damageable_id", entity_id)
+		if not existing.died.is_connected(_on_health_component_died):
+			existing.died.connect(_on_health_component_died)
+		if entity_kind == &"unit" and not existing.damaged.is_connected(_on_health_component_damaged):
+			existing.damaged.connect(_on_health_component_damaged)
 		return existing
 	var component := HEALTH_COMPONENT_SCRIPT.new() as HealthComponent
 	component.name = "HealthComponent"
@@ -2713,13 +3151,16 @@ func _attach_vitals(
 	component.configure(root, owner_peer_id, max_health, defense, evasion, max_mana, mana_regen)
 	component.combat_radius = 41.0 if entity_kind == &"base" else (28.0 if entity_kind == &"building" else 0.0)
 	component.died.connect(_on_health_component_died)
+	if entity_kind == &"unit":
+		component.damaged.connect(_on_health_component_damaged)
 	root.set_meta(&"damageable_kind", entity_kind)
 	root.set_meta(&"damageable_id", entity_id)
-	var health_bar := HEALTH_BAR_SCRIPT.new() as HealthBar2D
-	health_bar.name = "HealthBar"
-	health_bar.z_index = 950
-	root.add_child(health_bar)
-	health_bar.bind(component, bar_offset, bar_width)
+	if create_world_health_bar:
+		var health_bar := HEALTH_BAR_SCRIPT.new() as HealthBar2D
+		health_bar.name = "HealthBar"
+		health_bar.z_index = 950
+		root.add_child(health_bar)
+		health_bar.bind(component, bar_offset, bar_width)
 	return component
 
 func _get_enemy_damageables(owner_peer_id: int) -> Array:
@@ -2758,6 +3199,10 @@ func _all_damageables() -> Array[HealthComponent]:
 			var monster_health: HealthComponent = monster.get_node_or_null("HealthComponent") as HealthComponent
 			if is_instance_valid(monster_health) and monster_health.is_alive():
 				result.append(monster_health)
+	if is_instance_valid(_world_boss):
+		var boss_health: HealthComponent = _world_boss.get_node_or_null("HealthComponent") as HealthComponent
+		if is_instance_valid(boss_health) and boss_health.is_alive():
+			result.append(boss_health)
 	for player_base: PlayerBase in _player_base_by_territory_id.values():
 		if is_instance_valid(player_base):
 			var base_health := player_base.get_node_or_null("HealthComponent") as HealthComponent
@@ -2774,6 +3219,274 @@ func _are_peers_hostile(first_peer_id: int, second_peer_id: int) -> bool:
 		return true
 	return int(first_player.get("team", first_peer_id)) != int(second_player.get("team", second_peer_id))
 
+func _on_health_component_damaged(
+	component: HealthComponent,
+	damage: float,
+	source_owner_peer_id: int,
+	source_description: String
+) -> void:
+	if not _has_gameplay_authority() or not is_instance_valid(component.target_root):
+		return
+	var target_root: Node2D = component.target_root
+	var entity_kind: StringName = target_root.get_meta(&"damageable_kind", &"") as StringName
+	if entity_kind != &"unit":
+		return
+	if component.owner_peer_id <= 0 or component.owner_peer_id == source_owner_peer_id:
+		return
+	if source_owner_peer_id > 0 and not _are_peers_hostile(component.owner_peer_id, source_owner_peer_id):
+		return
+	var target_unit_id: int = int(target_root.get_meta(&"damageable_id", 0))
+	var target_name: String = _unit_display_name(target_root)
+	_send_attack_alert(
+		component.owner_peer_id,
+		target_unit_id,
+		target_name,
+		source_description,
+		damage,
+		target_root.global_position
+	)
+
+func _send_attack_alert(
+	target_peer_id: int,
+	target_unit_id: int,
+	target_name: String,
+	source_description: String,
+	damage: float,
+	world_position: Vector2
+) -> void:
+	if target_peer_id == _local_peer_id:
+		attack_alert_hud.show_attack_alert(target_unit_id, target_name, source_description, damage, world_position)
+	elif _multiplayer_mode and _player_by_peer_id.has(target_peer_id):
+		_rpc_receive_attack_alert.rpc_id(target_peer_id, target_unit_id, target_name, source_description, damage, world_position)
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_receive_attack_alert(
+	target_unit_id: int,
+	target_name: String,
+	source_description: String,
+	damage: float,
+	world_position: Vector2
+) -> void:
+	attack_alert_hud.show_attack_alert(target_unit_id, target_name, source_description, damage, world_position)
+
+func _unit_display_name(unit: Node2D) -> String:
+	var definition: UnitDefinition = unit.get("definition") as UnitDefinition
+	return definition.display_name if definition != null else "单位"
+
+func _focus_camera_at_world_position(world_position: Vector2) -> void:
+	var edge_camera: EdgeScrollCamera = map_camera as EdgeScrollCamera
+	if is_instance_valid(edge_camera):
+		edge_camera.jump_to_world_position(world_position)
+	else:
+		map_camera.position = world_position
+	world_resource_streamer.call(&"update_streaming", map_camera.position, true)
+	_refresh_entity_visibility()
+
+func _get_tactical_map_data() -> Dictionary:
+	return {
+		"units": _get_tactical_map_units(),
+		"resources": _get_tactical_map_resources(),
+		"buildings": _get_tactical_map_buildings(),
+		"territories": _get_tactical_map_territories(),
+	}
+
+func _get_tactical_map_units() -> Array[Dictionary]:
+	var map_units: Array[Dictionary] = []
+	for network_unit_id: int in _network_units.keys():
+		var unit: Node2D = _network_units.get(network_unit_id) as Node2D
+		if not is_instance_valid(unit) or bool(unit.get_meta(&"construction_busy", false)):
+			continue
+		var owner_peer_id: int = int(unit.get("owner_peer_id"))
+		var is_local: bool = owner_peer_id == _local_peer_id
+		if not is_local and not fog_of_war.is_world_position_visible(unit.global_position):
+			continue
+		var definition: UnitDefinition = unit.get("definition") as UnitDefinition
+		var is_combat_unit: bool = definition != null and definition.category in [UnitDefinition.Category.COMBAT, UnitDefinition.Category.HERO]
+		var category: StringName = &"worker"
+		if definition != null and definition.category == UnitDefinition.Category.HERO:
+			category = &"hero"
+		elif is_combat_unit:
+			category = &"combat"
+		var health_data: Dictionary = _tactical_health_data(unit)
+		var in_combat: bool = bool(unit.call(&"is_in_combat")) if unit.has_method(&"is_in_combat") else false
+		var unit_name: String = definition.display_name if definition != null else "单位"
+		map_units.append({
+			"key": "unit:%d" % network_unit_id,
+			"id": network_unit_id,
+			"position": unit.global_position,
+			"color": _tactical_faction_color(owner_peer_id),
+			"radius": 4.5 if is_combat_unit else 3.25,
+			"category": category,
+			"selected": is_local and _selected_unit_ids.has(network_unit_id),
+			"in_combat": in_combat,
+			"health_ratio": float(health_data.get("ratio", 1.0)),
+			"hover": "%s｜%s｜%s%s" % [
+				unit_name,
+				_tactical_owner_label(owner_peer_id),
+				str(health_data.get("text", "生命未知")),
+				"｜交战中" if in_combat else "",
+			],
+		})
+	for monster_id: int in _wild_monsters.keys():
+		var monster: WildMonster = _wild_monsters.get(monster_id) as WildMonster
+		if not is_instance_valid(monster) or not fog_of_war.is_world_position_visible(monster.global_position):
+			continue
+		var monster_health: Dictionary = _tactical_health_data(monster)
+		var monster_in_combat: bool = monster.is_in_combat()
+		map_units.append({
+			"key": "monster:%d" % monster_id,
+			"id": 1000000 + monster_id,
+			"position": monster.global_position,
+			"color": Color("#d85cff"),
+			"radius": 5.5,
+			"category": &"monster",
+			"in_combat": monster_in_combat,
+			"health_ratio": float(monster_health.get("ratio", 1.0)),
+			"hover": "%s｜野怪｜%s%s" % [
+				monster.get_display_name(),
+				str(monster_health.get("text", "生命未知")),
+				"｜交战中" if monster_in_combat else "",
+			],
+		})
+	if is_instance_valid(_world_boss) and fog_of_war.is_world_rect_visible(_world_boss.get_footprint_rect(TILE_SIZE)):
+		var boss_health: Dictionary = _tactical_health_data(_world_boss)
+		var boss_in_combat: bool = _world_boss.is_in_combat()
+		map_units.append({
+			"key": "boss:%d" % _world_boss.boss_id,
+			"id": 2000000 + _world_boss.boss_id,
+			"position": _world_boss.global_position,
+			"color": Color("#f5b642"),
+			"radius": 7.5,
+			"category": &"boss",
+			"in_combat": boss_in_combat,
+			"health_ratio": float(boss_health.get("ratio", 1.0)),
+			"hover": "%s｜世界首领｜%s%s" % [
+				_world_boss.get_display_name(),
+				str(boss_health.get("text", "生命未知")),
+				"｜交战中" if boss_in_combat else "",
+			],
+		})
+	return map_units
+
+func _get_tactical_map_resources() -> Array[Dictionary]:
+	var map_resources: Array[Dictionary] = []
+	var streamed_resources: Array = world_resource_streamer.call(&"get_all_resource_data") as Array
+	for value: Variant in streamed_resources:
+		var data: Dictionary = value as Dictionary
+		var cell: Vector2i = data.get("cell", Vector2i.ZERO) as Vector2i
+		var world_position: Vector2 = _resource_world_position(cell)
+		if not _full_vision and not fog_of_war.is_world_position_explored(world_position):
+			continue
+		var resource_type: StringName = data.get("resource_type", &"tree") as StringName
+		var resource_name: String = _resource_display_name(resource_type)
+		var resource_id: int = int(data.get("resource_id", 0))
+		map_resources.append({
+			"key": "stream_resource:%d" % resource_id,
+			"position": world_position,
+			"resource_type": resource_type,
+			"hover": "%s｜已探索资源点" % resource_name,
+		})
+	for root: Node2D in [tree_container, stone_container, rare_mineral_container]:
+		for child: Node in root.get_children():
+			if child is not Node2D:
+				continue
+			var resource: Node2D = child as Node2D
+			if resource.get_script() == WORLD_RESOURCE_MARKER_SCRIPT:
+				continue
+			if resource.has_method(&"can_be_targeted") and not bool(resource.call(&"can_be_targeted")):
+				continue
+			if not _full_vision and not fog_of_war.is_world_position_explored(resource.global_position):
+				continue
+			var resource_type: StringName = &"tree" if root == tree_container else (&"stone" if root == stone_container else StringName(str(resource.get("resource_type"))))
+			var progress: float = clampf(float(resource.get("harvest_progress_percent")), 0.0, 100.0)
+			map_resources.append({
+				"key": "entity_resource:%d" % resource.get_instance_id(),
+				"position": resource.global_position,
+				"resource_type": resource_type,
+				"hover": "%s｜已探索资源点｜剩余 %d%%" % [_resource_display_name(resource_type), roundi(progress)],
+			})
+	return map_resources
+
+func _get_tactical_map_buildings() -> Array[Dictionary]:
+	var map_buildings: Array[Dictionary] = []
+	for territory_id: int in _player_base_by_territory_id.keys():
+		var player_base: PlayerBase = _player_base_by_territory_id.get(territory_id) as PlayerBase
+		if not is_instance_valid(player_base):
+			continue
+		var owner_peer_id: int = player_base.owner_peer_id
+		if owner_peer_id != _local_peer_id and not fog_of_war.is_world_position_visible(player_base.global_position):
+			continue
+		var health_data: Dictionary = _tactical_health_data(player_base)
+		map_buildings.append({
+			"key": "base:%d" % territory_id,
+			"position": player_base.global_position,
+			"building_kind": &"base",
+			"color": _tactical_faction_color(owner_peer_id),
+			"health_ratio": float(health_data.get("ratio", 1.0)),
+			"hover": "基地 Lv.%d｜%s｜%s" % [player_base.base_level, _tactical_owner_label(owner_peer_id), str(health_data.get("text", "生命未知"))],
+		})
+	for building_id: int in _network_buildings.keys():
+		var building: ProductionBuilding = _network_buildings.get(building_id) as ProductionBuilding
+		if not is_instance_valid(building):
+			continue
+		var owner_peer_id: int = building.owner_peer_id
+		if owner_peer_id != _local_peer_id and not fog_of_war.is_world_position_visible(building.global_position):
+			continue
+		var health_data: Dictionary = _tactical_health_data(building)
+		var building_name: String = building.definition.display_name if building.definition != null else "建筑"
+		var state_text: String = "Lv.%d" % building.building_level if building.construction_complete else "建造中 %d%%" % roundi(building.get_construction_progress() * 100.0)
+		var stored_text: String = "｜待领取 %d" % building.pending_amount if building.pending_amount > 0 else ""
+		map_buildings.append({
+			"key": "building:%d" % building_id,
+			"position": building.global_position,
+			"building_kind": &"building",
+			"color": _tactical_faction_color(owner_peer_id),
+			"construction_complete": building.construction_complete,
+			"health_ratio": float(health_data.get("ratio", 1.0)),
+			"hover": "%s｜%s｜%s｜%s%s" % [building_name, _tactical_owner_label(owner_peer_id), state_text, str(health_data.get("text", "生命未知")), stored_text],
+		})
+	return map_buildings
+
+func _get_tactical_map_territories() -> Array[Dictionary]:
+	var map_territories: Array[Dictionary] = []
+	for territory_id: int in _territory_owner_by_id.keys():
+		if territory_id <= 0 or territory_id > _territory_rects.size():
+			continue
+		var cell_rect: Rect2i = _territory_rects[territory_id - 1]
+		var owner_peer_id: int = int(_territory_owner_by_id.get(territory_id, 0))
+		var is_local: bool = owner_peer_id == _local_peer_id
+		if not is_local and not _full_vision and not fog_of_war.is_cell_rect_explored(cell_rect):
+			continue
+		map_territories.append({
+			"key": "territory:%d" % territory_id,
+			"world_rect": Rect2(Vector2(cell_rect.position * TILE_SIZE), Vector2(cell_rect.size * TILE_SIZE)),
+			"color": _territory_color(territory_id),
+			"is_local": is_local,
+			"hover": "领地 %d｜%s" % [territory_id, _tactical_owner_label(owner_peer_id)],
+		})
+	return map_territories
+
+func _tactical_health_data(target: Node2D) -> Dictionary:
+	var health: HealthComponent = target.get_node_or_null("HealthComponent") as HealthComponent
+	if not is_instance_valid(health):
+		return {"ratio": 1.0, "text": "生命未知"}
+	return {
+		"ratio": health.get_health_ratio(),
+		"text": "生命 %d/%d" % [roundi(health.current_health), roundi(health.max_health)],
+	}
+
+func _tactical_faction_color(owner_peer_id: int) -> Color:
+	if owner_peer_id == _local_peer_id:
+		return Color("#78f0a1")
+	return Color("#ff8068") if _are_peers_hostile(_local_peer_id, owner_peer_id) else Color("#72c8ff")
+
+func _tactical_owner_label(owner_peer_id: int) -> String:
+	var player: Dictionary = _player_by_peer_id.get(owner_peer_id, {}) as Dictionary
+	var player_name: String = str(player.get("name", "玩家 %d" % owner_peer_id))
+	if owner_peer_id == _local_peer_id:
+		return "%s（己方）" % player_name
+	return "%s（敌方）" % player_name if _are_peers_hostile(_local_peer_id, owner_peer_id) else "%s（友方）" % player_name
+
 func _on_health_component_died(component: HealthComponent) -> void:
 	if not _has_gameplay_authority() or not is_instance_valid(component.target_root):
 		return
@@ -2789,6 +3502,8 @@ func _on_health_component_died(component: HealthComponent) -> void:
 		return
 	if entity_kind == &"monster" and component.last_damage_owner_peer_id > 0:
 		_apply_monster_drops(component.last_damage_owner_peer_id)
+	if entity_kind == &"boss" and component.last_damage_owner_peer_id > 0:
+		_apply_world_boss_rewards(component.last_damage_owner_peer_id)
 	_remove_damageable(entity_kind, entity_id)
 	if _multiplayer_mode:
 		_rpc_remove_damageable.rpc(str(entity_kind), entity_id)
@@ -2802,6 +3517,16 @@ func _apply_monster_drops(owner_peer_id: int) -> void:
 	_player_resource_states[owner_peer_id] = state
 	_send_resource_state(owner_peer_id, state)
 	_notify_peer(owner_peer_id, "击败野怪：铁+4 召唤符+1 技能经验+6 经验+20")
+
+func _apply_world_boss_rewards(owner_peer_id: int) -> void:
+	if not _player_resource_states.has(owner_peer_id):
+		return
+	var state: Dictionary = (_player_resource_states[owner_peer_id] as Dictionary).duplicate(true)
+	for resource_id: String in WORLD_BOSS_REWARDS.keys():
+		state[resource_id] = int(state.get(resource_id, 0)) + int(WORLD_BOSS_REWARDS[resource_id])
+	_player_resource_states[owner_peer_id] = state
+	_send_resource_state(owner_peer_id, state)
+	_notify_peer(owner_peer_id, "击败镇岳魔神：金币+300 铁+40 召唤符+5 技能经验+80 经验+250")
 
 func _apply_chest_rewards(owner_peer_id: int) -> void:
 	if not _player_resource_states.has(owner_peer_id):
@@ -2858,6 +3583,11 @@ func _remove_damageable(entity_kind: StringName, entity_id: int) -> void:
 		&"monster":
 			target = _wild_monsters.get(entity_id) as Node2D
 			_wild_monsters.erase(entity_id)
+		&"boss":
+			target = _world_boss
+			_world_boss = null
+			_world_boss_defeated = true
+			boss_health_hud.unbind_boss()
 		&"base":
 			target = _player_base_by_territory_id.get(entity_id) as Node2D
 			if is_instance_valid(target):
@@ -3069,17 +3799,575 @@ func _spawn_regrown_tree(tree_name: String, territory_id: int, world_position: V
 func _rpc_spawn_regrown_tree(tree_name: String, territory_id: int, world_position: Vector2) -> void:
 	_spawn_regrown_tree(tree_name, territory_id, world_position)
 
-func _on_start_requested(multiplayer_mode: bool, selected_ai_difficulty: int = SimpleAIController.Difficulty.NORMAL) -> void:
+func _store_initial_checkpoint() -> void:
+	if not _game_started or not _automatic_saves_allowed():
+		return
+	if not _multiplayer_mode or _has_gameplay_authority():
+		_store_authoritative_checkpoint(_multiplayer_mode)
+
+func _store_authoritative_checkpoint(broadcast_to_peers: bool) -> Dictionary:
+	if not _game_started or (_multiplayer_mode and not _has_gameplay_authority()):
+		return {}
+	var record: Dictionary = _build_save_record()
+	var saved: bool
+	if _multiplayer_mode:
+		saved = game_save_manager.save_multiplayer(record)
+		_latest_multiplayer_record = record.duplicate(true)
+		if broadcast_to_peers:
+			_rpc_receive_save_checkpoint.rpc(record)
+	else:
+		saved = game_save_manager.save_single_player(record)
+	if not saved:
+		push_error("自动存档写入失败")
+	return record
+
+func _automatic_saves_allowed() -> bool:
+	var current_scene: Node = get_tree().current_scene
+	return current_scene == null or not current_scene.scene_file_path.begins_with("res://tests/")
+
+func _build_save_record() -> Dictionary:
+	_active_save_revision += 1
+	if _multiplayer_mode and _active_save_game_id.is_empty():
+		_active_save_game_id = game_save_manager.create_game_id()
+	var player_count: int = 0
+	for player_value: Variant in (_multiplayer_snapshot.get("players", []) as Array):
+		var player: Dictionary = player_value as Dictionary
+		if int(player.get("team", 0)) > 0:
+			player_count += 1
+	return {
+		"format_version": 1,
+		"mode": "multiplayer" if _multiplayer_mode else "single",
+		"game_id": _active_save_game_id,
+		"revision": _active_save_revision,
+		"player_count": player_count,
+		"session_snapshot": _multiplayer_snapshot.duplicate(true),
+		"world_state": _capture_world_state(),
+	}
+
+func _save_before_leaving_game() -> void:
+	if not _game_started or not _automatic_saves_allowed():
+		return
+	if not _multiplayer_mode or _has_gameplay_authority():
+		_store_authoritative_checkpoint(_multiplayer_mode)
+	elif not _latest_multiplayer_record.is_empty():
+		game_save_manager.accept_newer_multiplayer_save(_latest_multiplayer_record)
+
+func _on_exit_requested() -> void:
+	if not _game_started:
+		get_tree().quit()
+		return
+	if _multiplayer_mode and not _has_gameplay_authority():
+		_quit_after_save_checkpoint = true
+		_rpc_request_save_checkpoint.rpc_id(MultiplayerPeer.TARGET_PEER_SERVER)
+		var timeout: SceneTreeTimer = get_tree().create_timer(1.5, true)
+		timeout.timeout.connect(_quit_after_checkpoint_timeout, CONNECT_ONE_SHOT)
+		return
+	_store_authoritative_checkpoint(_multiplayer_mode)
+	if _multiplayer_mode:
+		await get_tree().create_timer(0.15, true).timeout
+	get_tree().quit()
+
+func _quit_after_checkpoint_timeout() -> void:
+	if not _quit_after_save_checkpoint:
+		return
+	_quit_after_save_checkpoint = false
+	if not _latest_multiplayer_record.is_empty():
+		game_save_manager.accept_newer_multiplayer_save(_latest_multiplayer_record)
+	get_tree().quit()
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_request_save_checkpoint() -> void:
+	if not _has_gameplay_authority() or not _multiplayer_mode:
+		return
+	_store_authoritative_checkpoint(true)
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_receive_save_checkpoint(record: Dictionary) -> void:
+	if not game_save_manager.is_valid_record(record, "multiplayer"):
+		return
+	if not _active_save_game_id.is_empty() and str(record.get("game_id", "")) != _active_save_game_id:
+		return
+	_active_save_game_id = str(record.get("game_id", ""))
+	_active_save_revision = maxi(_active_save_revision, int(record.get("revision", 0)))
+	_latest_multiplayer_record = record.duplicate(true)
+	game_save_manager.accept_newer_multiplayer_save(record)
+	if _quit_after_save_checkpoint:
+		_quit_after_save_checkpoint = false
+		get_tree().quit()
+		return
+	if _return_to_menu_after_save_checkpoint:
+		_return_to_menu_after_save_checkpoint = false
+		_show_main_menu()
+
+func _on_resume_save_received(record: Dictionary) -> void:
+	game_save_manager.accept_newer_multiplayer_save(record)
+
+func _capture_world_state() -> Dictionary:
+	var territories: Array[Dictionary] = []
+	for index: int in _territory_rects.size():
+		var territory_id: int = index + 1
+		var owner_peer_id: int = int(_territory_owner_by_id.get(territory_id, 0))
+		territories.append({
+			"territory_id": territory_id,
+			"rect": _territory_rects[index],
+			"owner_primary_territory_id": _owner_primary_territory_id(owner_peer_id),
+		})
+
+	var player_states: Array[Dictionary] = []
+	for peer_id: int in _player_by_peer_id.keys():
+		player_states.append({
+			"owner_primary_territory_id": _owner_primary_territory_id(peer_id),
+			"resources": (_player_resource_states.get(peer_id, {}) as Dictionary).duplicate(true),
+			"base_level": int(_base_level_by_peer_id.get(peer_id, 1)),
+			"infinite_resources": bool(_infinite_resources_by_peer_id.get(peer_id, false)),
+			"spawn_sequence": int(_spawn_sequence_by_peer.get(peer_id, 0)),
+		})
+
+	var bases: Array[Dictionary] = []
+	for territory_id: int in _player_base_by_territory_id.keys():
+		var player_base: PlayerBase = _player_base_by_territory_id.get(territory_id) as PlayerBase
+		if not is_instance_valid(player_base):
+			continue
+		var health: HealthComponent = player_base.get_node_or_null("HealthComponent") as HealthComponent
+		bases.append({
+			"territory_id": territory_id,
+			"health": health.current_health if is_instance_valid(health) else 1800.0,
+		})
+
+	var units: Array[Dictionary] = []
+	for unit_id: int in _network_units.keys():
+		var unit: Node2D = _network_units.get(unit_id) as Node2D
+		if not is_instance_valid(unit):
+			continue
+		var definition: UnitDefinition = unit.get("definition") as UnitDefinition
+		if definition == null:
+			continue
+		var owner_peer_id: int = int(unit.get("owner_peer_id"))
+		var unit_state: Dictionary = {
+			"unit_id": unit_id,
+			"definition_id": str(definition.unit_id),
+			"owner_primary_territory_id": _owner_primary_territory_id(owner_peer_id),
+			"territory_id": int(unit.get("territory_id")),
+			"position": unit.global_position,
+			"construction_busy": bool(unit.get_meta(&"construction_busy", false)),
+		}
+		if unit is TreantUnit or unit is ExplorerUnit:
+			unit_state["move_target"] = unit.get("move_target")
+			unit_state["has_move_target"] = bool(unit.get("has_move_target"))
+		if unit is TreantUnit:
+			var combat_unit: TreantUnit = unit as TreantUnit
+			unit_state["star_level"] = combat_unit.star_level
+			unit_state["combat_status"] = combat_unit.get_combat_status_network_state()
+		if unit is HeroUnit:
+			var hero: HeroUnit = unit as HeroUnit
+			unit_state["hero_level"] = hero.hero_level
+			unit_state["skill_levels"] = hero.skill_levels.duplicate(true)
+			unit_state["skill_cooldowns"] = hero.skill_cooldowns.duplicate(true)
+		if unit is LumberMachine or unit is QuarryMachine:
+			unit_state["work_enabled"] = bool(unit.get("work_enabled"))
+			unit_state["machine_level"] = int(unit.get("machine_level"))
+		var unit_health: HealthComponent = unit.get_node_or_null("HealthComponent") as HealthComponent
+		if is_instance_valid(unit_health):
+			unit_state["health"] = unit_health.current_health
+			unit_state["mana"] = unit_health.current_mana
+		units.append(unit_state)
+
+	var buildings: Array[Dictionary] = []
+	for building_id: int in _network_buildings.keys():
+		var building: ProductionBuilding = _network_buildings.get(building_id) as ProductionBuilding
+		if not is_instance_valid(building) or building.definition == null:
+			continue
+		var building_health: HealthComponent = building.get_node_or_null("HealthComponent") as HealthComponent
+		buildings.append({
+			"building_id": building_id,
+			"definition_id": str(building.definition.building_id),
+			"owner_primary_territory_id": _owner_primary_territory_id(building.owner_peer_id),
+			"territory_id": building.territory_id,
+			"position": building.global_position,
+			"cell_rect": building.get_meta(&"cell_rect", Rect2i()) as Rect2i,
+			"building_level": building.building_level,
+			"pending_amount": building.pending_amount,
+			"builder_unit_id": int(building.get_meta(&"builder_unit_id", 0)),
+			"builder_return_position": building.get_meta(&"builder_return_position", building.global_position) as Vector2,
+			"runtime": building.get_runtime_save_state(),
+			"health": building_health.current_health if is_instance_valid(building_health) else float(building.definition.max_health),
+		})
+
+	var monsters: Array[Dictionary] = []
+	for monster_id: int in _wild_monsters.keys():
+		var monster: WildMonster = _wild_monsters.get(monster_id) as WildMonster
+		if not is_instance_valid(monster):
+			continue
+		var monster_health: HealthComponent = monster.get_node_or_null("HealthComponent") as HealthComponent
+		monsters.append({
+			"monster_id": monster_id,
+			"position": monster.global_position,
+			"cell_rect": monster.get_meta(&"cell_rect", Rect2i()) as Rect2i,
+			"health": monster_health.current_health if is_instance_valid(monster_health) else monster.get_max_health(),
+		})
+
+	var boss_state: Dictionary = {}
+	if is_instance_valid(_world_boss):
+		var boss_health: HealthComponent = _world_boss.get_node_or_null("HealthComponent") as HealthComponent
+		boss_state = {
+			"boss_id": _world_boss.boss_id,
+			"position": _world_boss.global_position,
+			"cell_rect": _world_boss.get_meta(&"cell_rect", Rect2i()) as Rect2i,
+			"health": boss_health.current_health if is_instance_valid(boss_health) else _world_boss.get_max_health(),
+			"phase": _world_boss.get_phase(),
+		}
+
+	return {
+		"state_version": 1,
+		"territories": territories,
+		"players": player_states,
+		"bases": bases,
+		"units": units,
+		"buildings": buildings,
+		"fixed_resources": _capture_fixed_resources(),
+		"streamed_resources": world_resource_streamer.call(&"get_all_resource_data"),
+		"monsters": monsters,
+		"boss": boss_state,
+		"world_boss_defeated": _world_boss_defeated,
+		"initial_tree_counts": _initial_tree_count_by_territory.duplicate(true),
+		"tree_regrow_positions": _tree_regrow_positions_by_territory.duplicate(true),
+		"tree_regrow_elapsed": _tree_regrow_elapsed_by_territory.duplicate(true),
+		"next_network_unit_id": _next_network_unit_id,
+		"next_network_building_id": _next_network_building_id,
+		"next_monster_id": _next_monster_id,
+		"next_regrown_tree_id": _next_regrown_tree_id,
+		"next_summon_offer_id": _next_summon_offer_id,
+		"summon_rng_state": _summon_rng.state,
+		"hero_by_owner": _capture_hero_owners(),
+		"ai_expansion_completed": _ai_expansion_completed,
+		"ai_known_enemy_position": _ai_known_enemy_position,
+		"ai_scout_waypoint_index": _ai_scout_waypoint_index,
+	}
+
+func _capture_fixed_resources() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for entry: Array in [[tree_container, "tree"], [stone_container, "stone"], [rare_mineral_container, "mineral"]]:
+		var container: Node2D = entry[0] as Node2D
+		var kind: String = str(entry[1])
+		for child: Node in container.get_children():
+			if child is not Node2D or child.get_script() == WORLD_RESOURCE_MARKER_SCRIPT:
+				continue
+			var resource: Node2D = child as Node2D
+			var progress: float = float(resource.get("harvest_progress_percent"))
+			if progress <= 0.0:
+				continue
+			result.append({
+				"kind": kind,
+				"name": str(resource.name),
+				"position": resource.global_position,
+				"territory_id": int(resource.get("territory_id")),
+				"resource_type": str(resource.get("resource_type")) if kind != "tree" else "tree",
+				"harvest_progress": progress,
+				"chest_id": int(resource.get_meta(&"damageable_id", 0)),
+			})
+	return result
+
+func _capture_hero_owners() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for owner_peer_id: int in _hero_unit_by_peer_id.keys():
+		result.append({
+			"owner_primary_territory_id": _owner_primary_territory_id(owner_peer_id),
+			"unit_id": int(_hero_unit_by_peer_id[owner_peer_id]),
+		})
+	return result
+
+func _owner_primary_territory_id(peer_id: int) -> int:
+	var player: Dictionary = _player_by_peer_id.get(peer_id, {}) as Dictionary
+	return int(player.get("territory_id", 0))
+
+func _peer_for_primary_territory(territory_id: int) -> int:
+	for peer_id: int in _player_by_peer_id.keys():
+		var player: Dictionary = _player_by_peer_id[peer_id]
+		if int(player.get("territory_id", 0)) == territory_id:
+			return peer_id
+	return int(_territory_owner_by_id.get(territory_id, 0))
+
+func _apply_world_state(state: Dictionary) -> void:
+	if int(state.get("state_version", 0)) != 1:
+		push_error("无法加载不受支持的世界存档版本")
+		return
+
+	var saved_territories: Array = state.get("territories", []) as Array
+	for value: Variant in saved_territories:
+		var saved_territory: Dictionary = value as Dictionary
+		var territory_id: int = int(saved_territory.get("territory_id", 0))
+		if territory_id <= _territory_rects.size():
+			continue
+		var owner_peer_id: int = _peer_for_primary_territory(int(saved_territory.get("owner_primary_territory_id", 0)))
+		_apply_new_territory({
+			"territory_id": territory_id,
+			"owner_peer_id": owner_peer_id,
+			"rect": saved_territory.get("rect", Rect2i()) as Rect2i,
+		})
+
+	_restore_player_states(state.get("players", []) as Array)
+	_restore_bases(state.get("bases", []) as Array)
+	_restore_fixed_resources(state.get("fixed_resources", []) as Array)
+	world_resource_streamer.call(&"restore_resource_data", state.get("streamed_resources", []) as Array)
+
+	_clear_children(unit_container)
+	_clear_children(building_container)
+	_network_units.clear()
+	_network_buildings.clear()
+	_pending_structure_job_by_unit_id.clear()
+	_builder_unit_id_by_building_id.clear()
+	_hero_unit_by_peer_id.clear()
+	_restore_units(state.get("units", []) as Array)
+	_restore_buildings(state.get("buildings", []) as Array)
+	_restore_hero_owners(state.get("hero_by_owner", []) as Array)
+	_restore_monsters_and_boss(state)
+
+	_next_network_unit_id = maxi(int(state.get("next_network_unit_id", 1)), _maximum_unit_id() + 1)
+	_next_network_building_id = maxi(int(state.get("next_network_building_id", 1)), _maximum_building_id() + 1)
+	_next_monster_id = maxi(int(state.get("next_monster_id", 1)), _maximum_monster_id() + 1)
+	_next_regrown_tree_id = maxi(1, int(state.get("next_regrown_tree_id", 1)))
+	_next_summon_offer_id = maxi(1, int(state.get("next_summon_offer_id", 1)))
+	_summon_rng.state = int(state.get("summon_rng_state", _summon_rng.state))
+	_restore_tree_regrowth_state(state)
+	_ai_expansion_completed = bool(state.get("ai_expansion_completed", false))
+	_ai_known_enemy_position = state.get("ai_known_enemy_position", Vector2.ZERO) as Vector2
+	_ai_scout_waypoint_index = int(state.get("ai_scout_waypoint_index", 0))
+
+func _restore_player_states(saved_players: Array) -> void:
+	_player_resource_states.clear()
+	_infinite_resources_by_peer_id.clear()
+	_spawn_sequence_by_peer.clear()
+	for value: Variant in saved_players:
+		var saved: Dictionary = value as Dictionary
+		var peer_id: int = _peer_for_primary_territory(int(saved.get("owner_primary_territory_id", 0)))
+		if peer_id <= 0:
+			continue
+		_player_resource_states[peer_id] = (saved.get("resources", {}) as Dictionary).duplicate(true)
+		_base_level_by_peer_id[peer_id] = clampi(int(saved.get("base_level", 1)), 1, BaseProgression.MAX_LEVEL)
+		_infinite_resources_by_peer_id[peer_id] = bool(saved.get("infinite_resources", false))
+		_spawn_sequence_by_peer[peer_id] = int(saved.get("spawn_sequence", 0))
+	for peer_id: int in _player_by_peer_id.keys():
+		if not _player_resource_states.has(peer_id):
+			_player_resource_states[peer_id] = {
+				"gold": DEVELOPMENT_GOLD, "wood": 0, "stone": 0,
+				"iron": 0, "summon_token": 0, "skill_experience": 0, "experience": 0,
+			}
+	for player_base: PlayerBase in _player_base_by_territory_id.values():
+		if is_instance_valid(player_base):
+			player_base.set_level(int(_base_level_by_peer_id.get(player_base.owner_peer_id, 1)))
+	var local_state: Dictionary = _player_resource_states.get(_local_peer_id, {}) as Dictionary
+	if not local_state.is_empty():
+		_apply_local_resource_state(local_state)
+
+func _restore_bases(saved_bases: Array) -> void:
+	var saved_ids: Dictionary[int, bool] = {}
+	for value: Variant in saved_bases:
+		var saved: Dictionary = value as Dictionary
+		var territory_id: int = int(saved.get("territory_id", 0))
+		saved_ids[territory_id] = true
+		var player_base: PlayerBase = _player_base_by_territory_id.get(territory_id) as PlayerBase
+		if not is_instance_valid(player_base):
+			continue
+		var health: HealthComponent = player_base.get_node_or_null("HealthComponent") as HealthComponent
+		if is_instance_valid(health):
+			health.apply_network_state(float(saved.get("health", health.current_health)), health.current_mana)
+	var existing_ids: Array[int] = []
+	for territory_id: int in _player_base_by_territory_id.keys():
+		existing_ids.append(territory_id)
+	for territory_id: int in existing_ids:
+		if saved_ids.has(territory_id):
+			continue
+		var removed_base: PlayerBase = _player_base_by_territory_id.get(territory_id) as PlayerBase
+		_player_base_by_territory_id.erase(territory_id)
+		if is_instance_valid(removed_base):
+			if _player_base_by_peer_id.get(removed_base.owner_peer_id) == removed_base:
+				_player_base_by_peer_id.erase(removed_base.owner_peer_id)
+			removed_base.queue_free()
+
+func _restore_fixed_resources(saved_resources: Array) -> void:
+	world_resource_streamer.call(&"clear_all")
+	_combat_chests.clear()
+	_selected_chest_target_id = 0
+	_clear_children(tree_container)
+	_clear_children(stone_container)
+	_clear_children(rare_mineral_container)
+	for value: Variant in saved_resources:
+		var saved: Dictionary = value as Dictionary
+		var kind: String = str(saved.get("kind", ""))
+		var resource_type: StringName = StringName(str(saved.get("resource_type", "stone")))
+		var resource: Node2D
+		var parent: Node2D
+		if kind == "tree":
+			resource = TREE_SCENE.instantiate() as Node2D
+			parent = tree_container
+			resource.connect(&"felled", _on_tree_felled)
+		elif kind == "stone":
+			resource = STONE_SCENE.instantiate() as Node2D
+			parent = stone_container
+			resource.connect(&"depleted", _on_stone_depleted)
+		elif kind == "mineral":
+			resource = _mineral_scene_for(resource_type).instantiate() as Node2D
+			parent = rare_mineral_container
+			resource.connect(&"depleted", _on_mineral_depleted)
+		else:
+			continue
+		resource.name = str(saved.get("name", "SavedResource"))
+		resource.position = saved.get("position", Vector2.ZERO) as Vector2
+		resource.set("territory_id", int(saved.get("territory_id", 0)))
+		resource.set("harvest_progress_percent", float(saved.get("harvest_progress", 100.0)))
+		parent.add_child(resource)
+		if resource_type == &"chest":
+			_register_combat_chest(resource, int(saved.get("chest_id", 0)))
+
+func _restore_units(saved_units: Array) -> void:
+	for value: Variant in saved_units:
+		var saved: Dictionary = value as Dictionary
+		var owner_peer_id: int = _peer_for_primary_territory(int(saved.get("owner_primary_territory_id", 0)))
+		if owner_peer_id <= 0:
+			continue
+		var spawn_data: Dictionary = saved.duplicate(true)
+		spawn_data["owner_peer_id"] = owner_peer_id
+		spawn_data["position"] = saved.get("position", Vector2.ZERO)
+		_spawn_network_unit(spawn_data)
+		var unit_id: int = int(saved.get("unit_id", 0))
+		var unit: Node2D = _network_units.get(unit_id) as Node2D
+		if not is_instance_valid(unit):
+			continue
+		if unit is HeroUnit:
+			var hero: HeroUnit = unit as HeroUnit
+			hero.skill_cooldowns.clear()
+			var saved_cooldowns: Dictionary = saved.get("skill_cooldowns", {}) as Dictionary
+			for skill_value: Variant in saved_cooldowns.keys():
+				hero.skill_cooldowns[StringName(str(skill_value))] = float(saved_cooldowns[skill_value])
+		if unit is TreantUnit:
+			(unit as TreantUnit).apply_combat_status_network_state(saved.get("combat_status", {}) as Dictionary)
+		if unit is LumberMachine or unit is QuarryMachine:
+			unit.call(&"set_work_enabled", bool(saved.get("work_enabled", true)))
+			unit.call(&"set_machine_level", int(saved.get("machine_level", 1)))
+		if bool(saved.get("has_move_target", false)) and unit.has_method(&"set_navigation_path"):
+			var target: Vector2 = saved.get("move_target", unit.global_position) as Vector2
+			unit.call(&"set_navigation_path", world_pathfinder.find_path(unit.global_position, target))
+		var health: HealthComponent = unit.get_node_or_null("HealthComponent") as HealthComponent
+		if is_instance_valid(health):
+			health.apply_network_state(float(saved.get("health", health.current_health)), float(saved.get("mana", health.current_mana)))
+
+func _restore_buildings(saved_buildings: Array) -> void:
+	for value: Variant in saved_buildings:
+		var saved: Dictionary = value as Dictionary
+		var owner_peer_id: int = _peer_for_primary_territory(int(saved.get("owner_primary_territory_id", 0)))
+		if owner_peer_id <= 0:
+			continue
+		var spawn_data: Dictionary = saved.duplicate(true)
+		spawn_data["owner_peer_id"] = owner_peer_id
+		_spawn_network_building(spawn_data)
+		var building: ProductionBuilding = _network_buildings.get(int(saved.get("building_id", 0))) as ProductionBuilding
+		if not is_instance_valid(building):
+			continue
+		building.restore_runtime_save_state(saved.get("runtime", {}) as Dictionary)
+		var health: HealthComponent = building.get_node_or_null("HealthComponent") as HealthComponent
+		if is_instance_valid(health):
+			health.apply_network_state(float(saved.get("health", health.current_health)), health.current_mana)
+
+func _restore_hero_owners(saved_heroes: Array) -> void:
+	_hero_unit_by_peer_id.clear()
+	for value: Variant in saved_heroes:
+		var saved: Dictionary = value as Dictionary
+		var owner_peer_id: int = _peer_for_primary_territory(int(saved.get("owner_primary_territory_id", 0)))
+		var unit_id: int = int(saved.get("unit_id", 0))
+		if owner_peer_id > 0 and _network_units.has(unit_id):
+			_hero_unit_by_peer_id[owner_peer_id] = unit_id
+
+func _restore_monsters_and_boss(state: Dictionary) -> void:
+	_clear_children(wild_monster_container)
+	_clear_children(world_boss_container)
+	_wild_monsters.clear()
+	_world_boss = null
+	boss_health_hud.unbind_boss()
+	for value: Variant in (state.get("monsters", []) as Array):
+		var saved: Dictionary = value as Dictionary
+		_spawn_network_monster(saved)
+		var monster: WildMonster = _wild_monsters.get(int(saved.get("monster_id", 0))) as WildMonster
+		if is_instance_valid(monster):
+			var health: HealthComponent = monster.get_node_or_null("HealthComponent") as HealthComponent
+			if is_instance_valid(health):
+				health.apply_network_state(float(saved.get("health", health.current_health)), health.current_mana)
+	var boss_state: Dictionary = state.get("boss", {}) as Dictionary
+	_world_boss_defeated = bool(state.get("world_boss_defeated", false))
+	if not boss_state.is_empty():
+		_world_boss_defeated = false
+		_spawn_network_boss(boss_state)
+		if is_instance_valid(_world_boss):
+			var boss_health: HealthComponent = _world_boss.get_node_or_null("HealthComponent") as HealthComponent
+			if is_instance_valid(boss_health):
+				boss_health.apply_network_state(float(boss_state.get("health", boss_health.current_health)), boss_health.current_mana)
+			_world_boss.apply_network_state(_world_boss.global_position, int(boss_state.get("phase", 1)), false)
+
+func _restore_tree_regrowth_state(state: Dictionary) -> void:
+	_initial_tree_count_by_territory.clear()
+	_tree_regrow_positions_by_territory.clear()
+	_tree_regrow_elapsed_by_territory.clear()
+	var counts: Dictionary = state.get("initial_tree_counts", {}) as Dictionary
+	for key: Variant in counts.keys():
+		_initial_tree_count_by_territory[int(key)] = int(counts[key])
+	var positions: Dictionary = state.get("tree_regrow_positions", {}) as Dictionary
+	for key: Variant in positions.keys():
+		_tree_regrow_positions_by_territory[int(key)] = (positions[key] as Array).duplicate(true)
+	var elapsed_values: Dictionary = state.get("tree_regrow_elapsed", {}) as Dictionary
+	for key: Variant in elapsed_values.keys():
+		_tree_regrow_elapsed_by_territory[int(key)] = float(elapsed_values[key])
+
+func _maximum_unit_id() -> int:
+	var maximum: int = 0
+	for unit_id: int in _network_units.keys():
+		maximum = maxi(maximum, unit_id)
+	return maximum
+
+func _maximum_building_id() -> int:
+	var maximum: int = 0
+	for building_id: int in _network_buildings.keys():
+		maximum = maxi(maximum, building_id)
+	return maximum
+
+func _maximum_monster_id() -> int:
+	var maximum: int = 0
+	for monster_id: int in _wild_monsters.keys():
+		maximum = maxi(maximum, monster_id)
+	return maximum
+
+func _refresh_after_world_restore() -> void:
+	_rebuild_navigation_obstacles()
+	world_resource_streamer.call(&"update_streaming", map_camera.position, true)
+	_refresh_entity_visibility()
+	_refresh_fog()
+	_schedule_navigation_rebuild()
+
+func _on_start_requested(
+	multiplayer_mode: bool,
+	selected_ai_difficulty: int = SimpleAIController.Difficulty.NORMAL,
+	selected_map_size_tiles: int = DEFAULT_MAP_SIZE_TILES,
+	selected_wild_enemy_difficulty: int = WildEnemyDifficulty.Level.NORMAL
+) -> void:
 	_multiplayer_mode = multiplayer_mode
 	if not multiplayer_mode:
+		_active_save_game_id = ""
+		_active_save_revision = 0
+		_latest_multiplayer_record.clear()
 		_ai_difficulty = clampi(selected_ai_difficulty, SimpleAIController.Difficulty.EASY, SimpleAIController.Difficulty.HELL)
+		_map_size_tiles = MapSizeSettingData.normalize_tile_count(selected_map_size_tiles)
+		_wild_enemy_difficulty = WildEnemyDifficulty.normalize(selected_wild_enemy_difficulty)
 		_resource_abundance = RESOURCE_STANDARD
 		_multiplayer_snapshot = _build_single_player_snapshot()
+	_begin_game()
+
+func _begin_game() -> void:
 	var settings: Dictionary = _multiplayer_snapshot.get("settings", {}) as Dictionary
 	_resource_seed = int(settings.get("resource_seed", 1))
 	_ai_difficulty = clampi(int(settings.get("ai_difficulty", _ai_difficulty)), SimpleAIController.Difficulty.EASY, SimpleAIController.Difficulty.HELL)
+	_wild_enemy_difficulty = WildEnemyDifficulty.normalize(int(settings.get("wild_enemy_difficulty", _wild_enemy_difficulty)))
+	_configure_map_size(int(settings.get("map_size_tiles", DEFAULT_MAP_SIZE_TILES)))
 	_reset_game_state()
 	_game_started = true
+	_save_checkpoint_elapsed = 0.0
 	main_menu.hide()
 	lan_lobby.call(&"close_lobby", false)
 	pause_menu.show()
@@ -3091,6 +4379,19 @@ func _on_start_requested(multiplayer_mode: bool, selected_ai_difficulty: int = S
 	fog_of_war.show()
 	get_tree().paused = false
 	_refresh_fog()
+	call_deferred("_store_initial_checkpoint")
+
+func _on_continue_single_requested(record: Dictionary) -> void:
+	if not game_save_manager.is_valid_record(record, "single"):
+		return
+	_multiplayer_mode = false
+	_multiplayer_snapshot = (record.get("session_snapshot", {}) as Dictionary).duplicate(true)
+	_active_save_game_id = ""
+	_active_save_revision = int(record.get("revision", 0))
+	_latest_multiplayer_record.clear()
+	_begin_game()
+	_apply_world_state(record.get("world_state", {}) as Dictionary)
+	_refresh_after_world_restore()
 
 func _on_multiplayer_requested() -> void:
 	main_menu.hide()
@@ -3105,20 +4406,55 @@ func _on_lobby_back_requested() -> void:
 	get_tree().paused = true
 
 func _on_multiplayer_game_start_requested(snapshot: Dictionary) -> void:
+	var resume_record: Dictionary = snapshot.get("resume_record", {}) as Dictionary
 	_multiplayer_snapshot = snapshot.duplicate(true)
-	var settings: Dictionary = snapshot.get("settings", {}) as Dictionary
+	_multiplayer_snapshot.erase("resume_record")
+	var settings: Dictionary = _multiplayer_snapshot.get("settings", {}) as Dictionary
 	_resource_abundance = clampi(int(settings.get("resource_abundance", RESOURCE_STANDARD)), RESOURCE_SCARCE, RESOURCE_RICH)
+	_wild_enemy_difficulty = WildEnemyDifficulty.normalize(int(settings.get("wild_enemy_difficulty", WildEnemyDifficulty.Level.NORMAL)))
 	_resource_seed = int(settings.get("resource_seed", 1))
 	_on_start_requested(true)
+	if game_save_manager.is_valid_record(resume_record, "multiplayer"):
+		_active_save_game_id = str(resume_record.get("game_id", ""))
+		_active_save_revision = int(resume_record.get("revision", 0))
+		_latest_multiplayer_record = resume_record.duplicate(true)
+		game_save_manager.accept_newer_multiplayer_save(resume_record)
+		_apply_world_state(resume_record.get("world_state", {}) as Dictionary)
+		_refresh_after_world_restore()
+	elif _has_gameplay_authority():
+		_active_save_game_id = game_save_manager.create_game_id()
+		_active_save_revision = 0
+		_latest_multiplayer_record.clear()
 
 func _on_return_to_main_menu() -> void:
+	if _game_started and _multiplayer_mode and not _has_gameplay_authority():
+		_return_to_menu_after_save_checkpoint = true
+		_rpc_request_save_checkpoint.rpc_id(MultiplayerPeer.TARGET_PEER_SERVER)
+		var timeout: SceneTreeTimer = get_tree().create_timer(1.5, true)
+		timeout.timeout.connect(_return_to_menu_after_checkpoint_timeout, CONNECT_ONE_SHOT)
+		return
+	_save_before_leaving_game()
+	if _game_started and _multiplayer_mode:
+		await get_tree().create_timer(0.15, true).timeout
+	_show_main_menu()
+
+func _return_to_menu_after_checkpoint_timeout() -> void:
+	if not _return_to_menu_after_save_checkpoint:
+		return
+	_return_to_menu_after_save_checkpoint = false
+	if not _latest_multiplayer_record.is_empty():
+		game_save_manager.accept_newer_multiplayer_save(_latest_multiplayer_record)
 	_show_main_menu()
 
 func _show_main_menu() -> void:
 	_game_started = false
+	tactical_map.set_available(false)
+	attack_alert_hud.set_available(false)
+	_cancel_developer_enemy_spawn(false)
 	_multiplayer_snapshot.clear()
 	_resource_abundance = RESOURCE_STANDARD
 	_resource_seed = 1
+	_wild_enemy_difficulty = WildEnemyDifficulty.Level.NORMAL
 	_full_vision = false
 	_dragging_selection = false
 	_active_player_base = null
@@ -3137,24 +4473,36 @@ func _show_main_menu() -> void:
 	pause_menu.force_close()
 	pause_menu.hide()
 	resource_hud.hide()
+	boss_health_hud.unbind_boss()
 	developer_panel.reset()
 	developer_panel.hide()
 	ai_controller.configure(false)
 	world_resource_streamer.call(&"clear_streamed_markers")
 	fog_of_war.hide()
 	lan_lobby.call(&"close_lobby", true)
+	_active_save_game_id = ""
+	_active_save_revision = 0
+	_latest_multiplayer_record.clear()
+	_quit_after_save_checkpoint = false
+	_return_to_menu_after_save_checkpoint = false
+	_save_checkpoint_elapsed = 0.0
 	main_menu.show()
 	get_tree().paused = true
 
 func _reset_game_state() -> void:
+	_cancel_developer_enemy_spawn(false)
 	_clear_children(unit_container)
 	_clear_children(building_container)
 	_clear_children(wild_monster_container)
+	_clear_children(world_boss_container)
 	_network_units.clear()
 	_network_buildings.clear()
 	_pending_structure_job_by_unit_id.clear()
 	_builder_unit_id_by_building_id.clear()
 	_wild_monsters.clear()
+	_world_boss = null
+	_world_boss_defeated = false
+	boss_health_hud.unbind_boss()
 	_hero_unit_by_peer_id.clear()
 	_selected_unit_ids.clear()
 	_clear_selected_enemy_target()
@@ -3182,6 +4530,7 @@ func _reset_game_state() -> void:
 	_setup_runtime_players(_multiplayer_snapshot)
 	_spawn_fair_resources()
 	_spawn_wild_monsters()
+	_spawn_world_boss()
 	_rebuild_navigation_obstacles()
 	_initialize_player_resources()
 	_ai_expansion_completed = false
@@ -3202,7 +4551,16 @@ func _reset_game_state() -> void:
 	hero_summon_panel.close()
 	developer_panel.reset()
 	var local_rect_index: int = clampi(_local_territory_id - 1, 0, _territory_rects.size() - 1)
-	fog_of_war.configure(Vector2i(GRID_SIZE, GRID_SIZE), TILE_SIZE, _territory_rects[local_rect_index])
+	fog_of_war.configure(Vector2i(_map_size_tiles, _map_size_tiles), TILE_SIZE, _territory_rects[local_rect_index])
+	tactical_map.configure(
+		fog_of_war,
+		Vector2(_map_size_tiles * TILE_SIZE, _map_size_tiles * TILE_SIZE),
+		TILE_SIZE,
+		_get_tactical_map_data,
+		map_camera
+	)
+	tactical_map.set_available(true)
+	attack_alert_hud.set_available(true)
 	map_camera.zoom = LOCAL_TERRITORY_ZOOM
 	map_camera.position = _territory_base_position(_local_territory_id)
 	world_resource_streamer.call(&"update_streaming", map_camera.position, true)
@@ -3214,6 +4572,8 @@ func _build_single_player_snapshot() -> Dictionary:
 			"resource_abundance": RESOURCE_STANDARD,
 			"resource_seed": randi(),
 			"ai_difficulty": _ai_difficulty,
+			"map_size_tiles": _map_size_tiles,
+			"wild_enemy_difficulty": _wild_enemy_difficulty,
 		},
 		"players": [{
 			"peer_id": 1,
@@ -3408,14 +4768,35 @@ func _ai_try_claim_summon() -> bool:
 func _ai_try_purchase_summon() -> bool:
 	return _server_purchase_summon(_ai_peer_id)
 
+func _get_ai_expansion_rect() -> Rect2i:
+	var ai_player: Dictionary = _player_by_peer_id.get(_ai_peer_id, {}) as Dictionary
+	var territory_id: int = int(ai_player.get("territory_id", 0))
+	if territory_id <= 0 or territory_id > _territory_rects.size():
+		return Rect2i()
+	var origin: Vector2i = _territory_rects[territory_id - 1].position
+	var offsets: Array[Vector2i] = [
+		Vector2i(0, TERRITORY_GRID_STRIDE),
+		Vector2i(0, -TERRITORY_GRID_STRIDE),
+		Vector2i(TERRITORY_GRID_STRIDE, 0),
+		Vector2i(-TERRITORY_GRID_STRIDE, 0),
+		Vector2i(TERRITORY_GRID_STRIDE, TERRITORY_GRID_STRIDE),
+		Vector2i(-TERRITORY_GRID_STRIDE, TERRITORY_GRID_STRIDE),
+	]
+	for offset: Vector2i in offsets:
+		var candidate: Rect2i = Rect2i(origin + offset, Vector2i.ONE * TERRITORY_SIZE)
+		if _is_valid_expansion_rect(candidate):
+			return candidate
+	return Rect2i()
+
 func _ai_try_expand(explorer: ExplorerUnit) -> bool:
 	if _ai_expansion_completed or not is_instance_valid(explorer):
 		return false
-	if not _is_valid_expansion_rect(AI_EXPANSION_RECT):
+	var expansion_rect: Rect2i = _get_ai_expansion_rect()
+	if expansion_rect.size != Vector2i.ONE * TERRITORY_SIZE:
 		return false
-	var destination: Vector2 = _rect_world_center(AI_EXPANSION_RECT)
+	var destination: Vector2 = _rect_world_center(expansion_rect)
 	if explorer.global_position.distance_to(destination) <= 24.0:
-		_ai_expansion_completed = _server_build_base(_ai_peer_id, explorer.unit_id, AI_EXPANSION_RECT)
+		_ai_expansion_completed = _server_build_base(_ai_peer_id, explorer.unit_id, expansion_rect)
 		return _ai_expansion_completed
 	if explorer.has_move_target and explorer.move_target.distance_to(destination) <= float(TILE_SIZE):
 		return false
@@ -3430,7 +4811,7 @@ func _ai_try_scout(combat_units: Array[int]) -> bool:
 			return false
 	var offset: Vector2i = AI_SCOUT_OFFSETS_TILES[_ai_scout_waypoint_index]
 	_ai_scout_waypoint_index = (_ai_scout_waypoint_index + AI_SCOUT_STEP) % AI_SCOUT_OFFSETS_TILES.size()
-	var map_max: float = float(GRID_SIZE * TILE_SIZE - 16)
+	var map_max: float = float(_map_size_tiles * TILE_SIZE - 16)
 	var target: Vector2 = _ai_scout_origin + Vector2(offset * TILE_SIZE)
 	target = Vector2(clampf(target.x, 16.0, map_max), clampf(target.y, 16.0, map_max))
 	return _server_move_units(_ai_peer_id, combat_units, target)

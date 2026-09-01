@@ -22,6 +22,10 @@
 [ext_resource type="PackedScene" path="res://game/ui/unit_command_panel.tscn" id="19_unit_commands"]
 [ext_resource type="Script" path="res://game/systems/simple_ai_controller.gd" id="20_ai"]
 [ext_resource type="Script" path="res://game/world/world_resource_streamer.gd" id="21_resource_streamer"]
+[ext_resource type="Script" path="res://game/ui/boss_health_hud.gd" id="22_boss_hud"]
+[ext_resource type="PackedScene" path="res://game/ui/attack_alert_hud.tscn" id="23_attack_alert"]
+[ext_resource type="PackedScene" path="res://game/ui/tactical_map.tscn" id="24_tactical_map"]
+[ext_resource type="Script" path="res://game/systems/game_save_manager.gd" id="25_save_manager"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_4c57u"]
 texture = ExtResource("2_lquwl")
@@ -85,6 +89,9 @@ y_sort_enabled = true
 [node name="WildMonsters" type="Node2D" parent="."]
 y_sort_enabled = true
 
+[node name="WorldBosses" type="Node2D" parent="."]
+y_sort_enabled = true
+
 [node name="Trees" type="Node2D" parent="." unique_id=2122588471]
 y_sort_enabled = true
 
@@ -117,9 +124,20 @@ script = ExtResource("6_resources")
 [node name="LanSession" type="Node" parent="."]
 script = ExtResource("11_lan_session")
 
+[node name="GameSaveManager" type="Node" parent="."]
+script = ExtResource("25_save_manager")
+
 [node name="ResourceHUD" type="CanvasLayer" parent="." unique_id=2122588474]
 layer = 20
 script = ExtResource("7_hud")
+
+[node name="BossHealthHUD" type="CanvasLayer" parent="."]
+layer = 25
+script = ExtResource("22_boss_hud")
+
+[node name="AttackAlertHUD" parent="." instance=ExtResource("23_attack_alert")]
+
+[node name="TacticalMap" parent="." instance=ExtResource("24_tactical_map")]
 
 [node name="DeveloperPanel" parent="." instance=ExtResource("16_developer")]
 

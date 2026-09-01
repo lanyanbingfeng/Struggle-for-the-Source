@@ -19,14 +19,29 @@ func _run() -> void:
 
 	var main_menu: MainMenu = map.get("main_menu") as MainMenu
 	_expect(main_menu.get_selected_ai_difficulty() == SimpleAIController.Difficulty.NORMAL, "主菜单默认难度不是普通")
-	var difficulty_picker: OptionButton = main_menu.get("_difficulty_picker") as OptionButton
-	_expect(is_instance_valid(difficulty_picker) and difficulty_picker.item_count == 4, "主菜单没有提供四档人机难度")
+	_expect(main_menu.get_selected_map_size_tiles() == 500, "单人设置默认地图不是大 500×500")
+	_expect(main_menu.get_selected_wild_enemy_difficulty() == WildEnemyDifficulty.Level.NORMAL, "单人设置默认野怪强度不是普通")
+	var difficulty_picker: OptionButton = main_menu.get("_ai_difficulty_picker") as OptionButton
+	var map_size_picker: OptionButton = main_menu.get("_map_size_picker") as OptionButton
+	var wild_difficulty_picker: OptionButton = main_menu.get("_wild_difficulty_picker") as OptionButton
+	_expect(is_instance_valid(difficulty_picker) and difficulty_picker.item_count == 4, "单人设置没有提供四档人机难度")
+	_expect(is_instance_valid(map_size_picker) and map_size_picker.item_count == 3, "单人设置没有提供小中大三档地图")
+	_expect(map_size_picker.get_item_id(0) == 100 and map_size_picker.get_item_id(1) == 250 and map_size_picker.get_item_id(2) == 500, "地图选项没有对应 100 / 250 / 500")
+	_expect(is_instance_valid(wild_difficulty_picker) and wild_difficulty_picker.item_count == 4, "单人设置没有提供四档野怪强度")
+	main_menu.call(&"_on_single_player_pressed")
+	var single_player_layer: Control = main_menu.get("_single_player_layer") as Control
+	_expect(is_instance_valid(single_player_layer) and single_player_layer.visible, "点击单人游戏后没有打开游戏设置面板")
 
-	map.call(&"_on_start_requested", false, SimpleAIController.Difficulty.HARD)
+	difficulty_picker.select(SimpleAIController.Difficulty.HARD)
+	map_size_picker.select(2)
+	wild_difficulty_picker.select(WildEnemyDifficulty.Level.EASY)
+	main_menu.call(&"_on_single_player_start_pressed")
 	await get_tree().process_frame
+	_expect(not single_player_layer.visible, "开始单人游戏后设置面板没有关闭")
 	var controller: SimpleAIController = map.get("ai_controller") as SimpleAIController
 	_expect(int(map.get("_ai_difficulty")) == SimpleAIController.Difficulty.HARD, "单人难度没有传递给地图")
 	_expect(controller.difficulty == SimpleAIController.Difficulty.HARD, "单人难度没有传递给决策器")
+	_expect(int(map.get("_wild_enemy_difficulty")) == WildEnemyDifficulty.Level.EASY, "野怪强度仍然与人机难度绑定")
 	controller.enabled = false
 	controller.set_process(false)
 

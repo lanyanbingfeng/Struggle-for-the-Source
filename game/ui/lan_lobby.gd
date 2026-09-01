@@ -11,6 +11,7 @@ const MUTED_COLOR: Color = Color("#a7bbb1")
 const ACCENT_COLOR: Color = Color("#426653")
 
 var _session: LanSession
+var _save_manager: Node
 var _root: Control
 var _panel: PanelContainer
 var _title_label: Label
@@ -24,6 +25,10 @@ var _rooms: Array[Dictionary] = []
 var _selected_room_index: int = -1
 var _player_name: String = "玩家"
 var _last_snapshot: Dictionary = {}
+var _save_list: ItemList
+var _save_detail: Label
+var _multiplayer_saves: Array[Dictionary] = []
+var _selected_save_index: int = -1
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -31,10 +36,11 @@ func _ready() -> void:
 	_build_shell()
 	hide()
 
-func bind(session: LanSession) -> void:
+func bind(session: LanSession, save_manager: Node = null) -> void:
 	if is_instance_valid(_session):
 		return
 	_session = session
+	_save_manager = save_manager
 	_session.rooms_changed.connect(_on_rooms_changed)
 	_session.connection_state_changed.connect(_on_connection_state_changed)
 	_session.room_joined.connect(_on_room_snapshot)
@@ -42,6 +48,8 @@ func bind(session: LanSession) -> void:
 	_session.room_left.connect(_on_room_left)
 	_session.action_rejected.connect(_on_action_rejected)
 	_session.game_start_received.connect(_on_game_start_received)
+	if is_instance_valid(_save_manager):
+		_save_manager.saves_changed.connect(_on_saves_changed)
 
 func open() -> void:
 	if not is_instance_valid(_session):
@@ -170,6 +178,10 @@ func _show_browser() -> void:
 	var create_button: Button = _make_button("创建房间", true)
 	create_button.pressed.connect(_show_create_room)
 	actions.add_child(create_button)
+	var saves_button: Button = _make_button("存档", false)
+	saves_button.name = "MultiplayerSavesButton"
+	saves_button.pressed.connect(_show_multiplayer_saves)
+	actions.add_child(saves_button)
 	var spacer: Control = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(spacer)
@@ -178,6 +190,52 @@ func _show_browser() -> void:
 	actions.add_child(back_button)
 	_populate_room_list()
 
+func _show_multiplayer_saves() -> void:
+	_title_label.text = "局域网大厅  /  未完成的多人战斗"
+	_status_label.text = "选择本机存档可创建恢复房间；加入者会自动比较并同步最新版本。"
+	_clear_content()
+	_multiplayer_saves = _save_manager.list_multiplayer_saves() if is_instance_valid(_save_manager) else []
+	_selected_save_index = -1
+
+	var browser_row: HBoxContainer = HBoxContainer.new()
+	browser_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	browser_row.add_theme_constant_override(&"separation", 10)
+	_content.add_child(browser_row)
+	_save_list = ItemList.new()
+	_save_list.custom_minimum_size = Vector2(335.0, 250.0)
+	_save_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_save_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_save_list.item_selected.connect(_on_save_selected)
+	_save_list.item_activated.connect(_on_save_activated)
+	browser_row.add_child(_save_list)
+
+	var detail_column: VBoxContainer = VBoxContainer.new()
+	detail_column.custom_minimum_size = Vector2(215.0, 0.0)
+	detail_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	detail_column.add_theme_constant_override(&"separation", 8)
+	browser_row.add_child(detail_column)
+	_save_detail = _make_label("选择一个存档查看详情", 11, MUTED_COLOR)
+	_save_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_save_detail.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	detail_column.add_child(_save_detail)
+	var continue_button: Button = _make_button("创建恢复房间", true)
+	continue_button.pressed.connect(_host_selected_save)
+	detail_column.add_child(continue_button)
+
+	var actions: HBoxContainer = HBoxContainer.new()
+	actions.add_theme_constant_override(&"separation", 8)
+	_content.add_child(actions)
+	var rooms_button: Button = _make_button("返回可用房间", false)
+	rooms_button.pressed.connect(_show_browser)
+	actions.add_child(rooms_button)
+	var spacer: Control = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(spacer)
+	var back_button: Button = _make_button("返回主菜单", false)
+	back_button.pressed.connect(_back_to_main_menu)
+	actions.add_child(back_button)
+	_populate_save_list()
+
 func _show_create_room() -> void:
 	_title_label.text = "局域网大厅  /  创建房间"
 	_status_label.text = "本机将作为房主，局域网内其他玩家可自动发现此房间。"
@@ -185,7 +243,7 @@ func _show_create_room() -> void:
 
 	var room_name_edit: LineEdit = _add_labeled_line_edit("房间名称", "%s的房间" % _player_name, false)
 	var password_edit: LineEdit = _add_labeled_line_edit("房间密码", "可留空", true)
-	_content.add_child(_make_label("创建后可在准备界面调整队伍数量、每队人数与资源丰富度。", 11, MUTED_COLOR))
+	_content.add_child(_make_label("创建后可在准备界面调整队伍、人数、资源与野怪难度。", 11, MUTED_COLOR))
 	var spacer: Control = Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_content.add_child(spacer)
@@ -203,14 +261,19 @@ func _render_room(snapshot: Dictionary) -> void:
 	_last_snapshot = snapshot.duplicate(true)
 	var settings: Dictionary = snapshot.get("settings", {}) as Dictionary
 	var players: Array = snapshot.get("players", []) as Array
+	var is_resume_room: bool = bool(snapshot.get("is_resume_room", false))
+	var local_peer_id: int = _session.get_local_peer_id()
+	var local_player: Dictionary = _find_player_by_peer(players, local_peer_id)
 	_title_label.text = "准备界面  /  %s" % str(settings.get("room_name", "局域网房间"))
 	_clear_content()
 
-	var host_controls: HBoxContainer = HBoxContainer.new()
-	host_controls.add_theme_constant_override("separation", 8)
+	var host_controls: GridContainer = GridContainer.new()
+	host_controls.columns = 4
+	host_controls.add_theme_constant_override("h_separation", 8)
+	host_controls.add_theme_constant_override("v_separation", 5)
 	_content.add_child(host_controls)
-	var team_option: OptionButton = _make_number_option("队伍数", 2, 4, int(settings.get("team_count", 2)))
-	var size_option: OptionButton = _make_number_option("每队人数", 1, 4, int(settings.get("players_per_team", 2)))
+	var team_option: OptionButton = _make_number_option(host_controls, "队伍数", 2, 4, int(settings.get("team_count", 2)))
+	var size_option: OptionButton = _make_number_option(host_controls, "每队人数", 1, 4, int(settings.get("players_per_team", 2)))
 	var abundance_option: OptionButton = OptionButton.new()
 	abundance_option.add_item("贫瘠")
 	abundance_option.add_item("标准")
@@ -218,12 +281,20 @@ func _render_room(snapshot: Dictionary) -> void:
 	abundance_option.select(clampi(int(settings.get("resource_abundance", 1)), 0, 2))
 	host_controls.add_child(_make_label("资源", 11, MUTED_COLOR))
 	host_controls.add_child(abundance_option)
-	team_option.disabled = not _session.is_host()
-	size_option.disabled = not _session.is_host()
-	abundance_option.disabled = not _session.is_host()
-	team_option.item_selected.connect(_on_settings_changed.bind(team_option, size_option, abundance_option))
-	size_option.item_selected.connect(_on_settings_changed.bind(team_option, size_option, abundance_option))
-	abundance_option.item_selected.connect(_on_settings_changed.bind(team_option, size_option, abundance_option))
+	var wild_option: OptionButton = OptionButton.new()
+	for difficulty_name: String in WildEnemyDifficulty.NAMES:
+		wild_option.add_item(difficulty_name)
+	wild_option.select(WildEnemyDifficulty.normalize(int(settings.get("wild_enemy_difficulty", WildEnemyDifficulty.Level.NORMAL))))
+	host_controls.add_child(_make_label("野怪难度", 11, MUTED_COLOR))
+	host_controls.add_child(wild_option)
+	team_option.disabled = not _session.is_host() or is_resume_room
+	size_option.disabled = not _session.is_host() or is_resume_room
+	abundance_option.disabled = not _session.is_host() or is_resume_room
+	wild_option.disabled = not _session.is_host() or is_resume_room
+	team_option.item_selected.connect(_on_settings_changed.bind(team_option, size_option, abundance_option, wild_option))
+	size_option.item_selected.connect(_on_settings_changed.bind(team_option, size_option, abundance_option, wild_option))
+	abundance_option.item_selected.connect(_on_settings_changed.bind(team_option, size_option, abundance_option, wild_option))
+	wild_option.item_selected.connect(_on_settings_changed.bind(team_option, size_option, abundance_option, wild_option))
 
 	var seats_scroll: ScrollContainer = ScrollContainer.new()
 	seats_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -250,21 +321,27 @@ func _render_room(snapshot: Dictionary) -> void:
 			var occupant: Dictionary = _find_player(players, team, slot)
 			var seat_text: String = "%d. 空位" % slot
 			if not occupant.is_empty():
-				seat_text = "%d. %s%s%s" % [
+				var connection_mark: String = ""
+				if is_resume_room and not bool(occupant.get("connected", false)):
+					connection_mark = " [离线·可顶替]" if int(local_player.get("team", 0)) <= 0 else " [离线]"
+				seat_text = "%d. %s%s%s%s" % [
 					slot,
 					str(occupant.get("name", "玩家")),
 					" [房主]" if bool(occupant.get("is_host", false)) else "",
 					" ✓" if bool(occupant.get("ready", false)) else "",
+					connection_mark,
 				]
-			var seat_button: Button = _make_button(seat_text, int(occupant.get("peer_id", 0)) == _session.get_local_peer_id())
+			var seat_button: Button = _make_button(seat_text, int(occupant.get("peer_id", 0)) == local_peer_id)
+			if is_resume_room and bool(occupant.get("connected", false)) and int(occupant.get("peer_id", 0)) != local_peer_id:
+				seat_button.disabled = true
 			seat_button.pressed.connect(_on_seat_pressed.bind(team, slot))
 			team_column.add_child(seat_button)
 
-	var local_player: Dictionary = _find_player_by_peer(players, _session.get_local_peer_id())
 	var actions: HBoxContainer = HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 8)
 	_content.add_child(actions)
 	var ready_button: Button = _make_button("取消准备" if bool(local_player.get("ready", false)) else "准备", true)
+	ready_button.disabled = is_resume_room and int(local_player.get("team", 0)) <= 0
 	ready_button.pressed.connect(_toggle_ready.bind(not bool(local_player.get("ready", false))))
 	actions.add_child(ready_button)
 	if _session.is_host():
@@ -278,7 +355,11 @@ func _render_room(snapshot: Dictionary) -> void:
 	var leave_button: Button = _make_button("离开房间", false)
 	leave_button.pressed.connect(_leave_room)
 	actions.add_child(leave_button)
-	_status_label.text = "%d 名玩家 · 点击任意座位可移动；占用座位会与对方交换。" % players.size()
+	if is_resume_room:
+		var revision: int = int(snapshot.get("resume_revision", 0))
+		_status_label.text = "恢复版本 %d · 未绑定原席位的玩家请点击离线席位执行顶替。" % revision
+	else:
+		_status_label.text = "%d 名玩家 · 点击任意座位可移动；占用座位会与对方交换。" % players.size()
 
 func _clear_content() -> void:
 	for child: Node in _content.get_children():
@@ -291,7 +372,8 @@ func _populate_room_list() -> void:
 	_room_list.clear()
 	for room: Dictionary in _rooms:
 		var lock_mark: String = " [密码]" if bool(room.get("password_required", false)) else ""
-		_room_list.add_item("%s%s    %d/%d" % [room.get("room_name", "房间"), lock_mark, room.get("player_count", 0), room.get("max_players", 0)])
+		var resume_mark: String = " [存档 v%d]" % int(room.get("resume_revision", 0)) if bool(room.get("is_resume_room", false)) else ""
+		_room_list.add_item("%s%s%s    %d/%d" % [room.get("room_name", "房间"), resume_mark, lock_mark, room.get("player_count", 0), room.get("max_players", 0)])
 	if _rooms.is_empty():
 		_room_detail.text = "尚未发现房间。\n\n搜索会自动持续进行，也可点击刷新。"
 		_selected_room_index = -1
@@ -305,9 +387,11 @@ func _update_room_detail() -> void:
 	var room: Dictionary = _rooms[_selected_room_index]
 	var abundance_names: Array[String] = ["贫瘠", "标准", "丰富"]
 	var abundance: int = clampi(int(room.get("resource_abundance", 1)), 0, 2)
-	_room_detail.text = "%s\n\n地址：%s:%d\n队伍：%d\n每队人数：%d\n资源：%s" % [
+	var wild_difficulty: int = WildEnemyDifficulty.normalize(int(room.get("wild_enemy_difficulty", WildEnemyDifficulty.Level.NORMAL)))
+	var resume_text: String = "\n恢复存档：版本 %d\n进入后自动同步最新副本" % int(room.get("resume_revision", 0)) if bool(room.get("is_resume_room", false)) else ""
+	_room_detail.text = "%s\n\n地址：%s:%d\n队伍：%d\n每队人数：%d\n资源：%s\n野怪：%s%s" % [
 		room.get("room_name", "房间"), room.get("address", ""), room.get("game_port", 0),
-		room.get("team_count", 2), room.get("players_per_team", 2), abundance_names[abundance],
+		room.get("team_count", 2), room.get("players_per_team", 2), abundance_names[abundance], WildEnemyDifficulty.get_display_name(wild_difficulty), resume_text,
 	]
 	_join_password.visible = bool(room.get("password_required", false))
 
@@ -326,14 +410,14 @@ func _add_labeled_line_edit(label_text: String, placeholder: String, secret: boo
 	row.add_child(edit)
 	return edit
 
-func _make_number_option(label_text: String, minimum: int, maximum: int, selected_value: int) -> OptionButton:
+func _make_number_option(parent: Container, label_text: String, minimum: int, maximum: int, selected_value: int) -> OptionButton:
 	var label: Label = _make_label(label_text, 11, MUTED_COLOR)
-	_content.get_child(_content.get_child_count() - 1).add_child(label)
+	parent.add_child(label)
 	var option: OptionButton = OptionButton.new()
 	for value: int in range(minimum, maximum + 1):
 		option.add_item(str(value), value)
 	option.select(clampi(selected_value, minimum, maximum) - minimum)
-	_content.get_child(_content.get_child_count() - 1).add_child(option)
+	parent.add_child(option)
 	return option
 
 func _make_label(text_value: String, font_size: int, color: Color) -> Label:
@@ -380,6 +464,48 @@ func _make_button_style(background: Color) -> StyleBoxFlat:
 	style.content_margin_right = 8.0
 	return style
 
+func _populate_save_list() -> void:
+	if not is_instance_valid(_save_list):
+		return
+	_save_list.clear()
+	for record: Dictionary in _multiplayer_saves:
+		var snapshot: Dictionary = record.get("session_snapshot", {}) as Dictionary
+		var settings: Dictionary = snapshot.get("settings", {}) as Dictionary
+		_save_list.add_item("%s    v%d" % [str(settings.get("room_name", "多人战斗")), int(record.get("revision", 0))])
+	if _multiplayer_saves.is_empty():
+		_save_detail.text = "本机还没有未完成的多人战斗存档。\n\n开始一场多人游戏后，房主会定期把权威进度同步到所有参与电脑。"
+
+func _update_save_detail() -> void:
+	if _selected_save_index < 0 or _selected_save_index >= _multiplayer_saves.size():
+		return
+	var record: Dictionary = _multiplayer_saves[_selected_save_index]
+	var snapshot: Dictionary = record.get("session_snapshot", {}) as Dictionary
+	var settings: Dictionary = snapshot.get("settings", {}) as Dictionary
+	_save_detail.text = "%s\n\n%s\n游戏编号：%s\n\n创建恢复房间后，其他玩家可从房间列表加入；没有该记录的玩家可顶替离线席位。" % [
+		str(settings.get("room_name", "多人战斗")),
+		_save_manager.describe_record(record),
+		str(record.get("game_id", "")),
+	]
+
+func _on_save_selected(index: int) -> void:
+	_selected_save_index = index
+	_update_save_detail()
+
+func _on_save_activated(index: int) -> void:
+	_selected_save_index = index
+	_host_selected_save()
+
+func _host_selected_save() -> void:
+	if _selected_save_index < 0 or _selected_save_index >= _multiplayer_saves.size():
+		_status_label.text = "请先选择一个多人存档。"
+		return
+	var participant_id: String = _save_manager.get_device_id() if is_instance_valid(_save_manager) else ""
+	_session.create_resume_room(_multiplayer_saves[_selected_save_index], _player_name, participant_id)
+
+func _on_saves_changed() -> void:
+	if visible and is_instance_valid(_save_list) and _save_list.is_inside_tree():
+		call_deferred("_show_multiplayer_saves")
+
 func _on_player_name_changed(value: String) -> void:
 	_player_name = value.strip_edges().left(24)
 
@@ -402,14 +528,20 @@ func _join_selected_room() -> void:
 		_status_label.text = "请先选择一个房间。"
 		return
 	var password: String = _join_password.text if is_instance_valid(_join_password) else ""
-	_session.join_room(_rooms[_selected_room_index], password, _player_name)
+	var room: Dictionary = _rooms[_selected_room_index]
+	var participant_id: String = _save_manager.get_device_id() if is_instance_valid(_save_manager) else ""
+	var local_record: Dictionary = {}
+	if bool(room.get("is_resume_room", false)) and is_instance_valid(_save_manager):
+		local_record = _save_manager.get_multiplayer_save(str(room.get("resume_game_id", "")))
+	_session.join_room(room, password, _player_name, participant_id, local_record)
 
 func _refresh_rooms() -> void:
 	_status_label.text = "正在刷新局域网房间…"
 	_session.refresh_discovery()
 
 func _create_room(room_name_edit: LineEdit, password_edit: LineEdit) -> void:
-	_session.create_room(room_name_edit.text, password_edit.text, _player_name)
+	var participant_id: String = _save_manager.get_device_id() if is_instance_valid(_save_manager) else ""
+	_session.create_room(room_name_edit.text, password_edit.text, _player_name, 2, 2, LanSession.ResourceAbundance.STANDARD, WildEnemyDifficulty.Level.NORMAL, participant_id)
 
 func _cancel_create() -> void:
 	_show_browser()
@@ -424,8 +556,8 @@ func _leave_room() -> void:
 	_session.leave_room(true)
 	_show_browser()
 
-func _on_settings_changed(_selected_index: int, team_option: OptionButton, size_option: OptionButton, abundance_option: OptionButton) -> void:
-	_session.update_room_settings(team_option.get_selected_id(), size_option.get_selected_id(), abundance_option.selected)
+func _on_settings_changed(_selected_index: int, team_option: OptionButton, size_option: OptionButton, abundance_option: OptionButton, wild_option: OptionButton) -> void:
+	_session.update_room_settings(team_option.get_selected_id(), size_option.get_selected_id(), abundance_option.selected, wild_option.selected)
 
 func _on_seat_pressed(team: int, slot: int) -> void:
 	_session.request_seat(team, slot)

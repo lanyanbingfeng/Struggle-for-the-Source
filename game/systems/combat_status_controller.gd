@@ -112,7 +112,14 @@ func apply_control_immunity(duration: float) -> void:
 	_control_immunity_remaining = maxf(_control_immunity_remaining, duration)
 	set_process(true)
 
-func apply_dot(source_id: StringName, raw_damage: float, duration: float, interval: float, owner_peer_id: int) -> void:
+func apply_dot(
+	source_id: StringName,
+	raw_damage: float,
+	duration: float,
+	interval: float,
+	owner_peer_id: int,
+	source_description: String = "持续伤害"
+) -> void:
 	if source_id.is_empty() or raw_damage <= 0.0 or duration <= 0.0:
 		return
 	_dot_effects[source_id] = {
@@ -121,6 +128,7 @@ func apply_dot(source_id: StringName, raw_damage: float, duration: float, interv
 		"interval": maxf(0.1, interval),
 		"elapsed": 0.0,
 		"owner_peer_id": owner_peer_id,
+		"source_description": source_description,
 	}
 	set_process(true)
 
@@ -228,7 +236,12 @@ func _process_dots(delta: float) -> void:
 		var interval: float = float(effect.get("interval", 1.0))
 		while elapsed >= interval and remaining > 0.0:
 			elapsed -= interval
-			_health.apply_attack(float(effect.get("damage", 0.0)), int(effect.get("owner_peer_id", 0)))
+			_health.apply_attack(
+				float(effect.get("damage", 0.0)),
+				int(effect.get("owner_peer_id", 0)),
+				0.0,
+				str(effect.get("source_description", "持续伤害"))
+			)
 		effect["remaining"] = remaining
 		effect["elapsed"] = elapsed
 		if remaining > 0.0:

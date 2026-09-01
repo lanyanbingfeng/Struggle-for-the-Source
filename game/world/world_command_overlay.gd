@@ -12,6 +12,10 @@ var _attack_pulse_time: float = 0.0
 var _build_preview_rect: Rect2 = Rect2()
 var _build_preview_visible: bool = false
 var _build_preview_valid: bool = true
+var _enemy_spawn_preview_rect: Rect2 = Rect2()
+var _enemy_spawn_preview_visible: bool = false
+var _enemy_spawn_preview_valid: bool = true
+var _enemy_spawn_preview_is_boss: bool = false
 
 func _ready() -> void:
 	z_index = 900
@@ -62,6 +66,17 @@ func hide_build_preview() -> void:
 	_build_preview_visible = false
 	queue_redraw()
 
+func show_enemy_spawn_preview(cell_rect: Rect2i, tile_size: int, is_valid: bool, is_boss: bool) -> void:
+	_enemy_spawn_preview_rect = Rect2(Vector2(cell_rect.position * tile_size), Vector2(cell_rect.size * tile_size))
+	_enemy_spawn_preview_visible = true
+	_enemy_spawn_preview_valid = is_valid
+	_enemy_spawn_preview_is_boss = is_boss
+	queue_redraw()
+
+func hide_enemy_spawn_preview() -> void:
+	_enemy_spawn_preview_visible = false
+	queue_redraw()
+
 func _process(delta: float) -> void:
 	_marker_time = maxf(0.0, _marker_time - delta)
 	_attack_pulse_time += delta
@@ -72,6 +87,17 @@ func _process(delta: float) -> void:
 		set_process(false)
 
 func _draw() -> void:
+	if _enemy_spawn_preview_visible:
+		var spawn_color: Color = Color("#ff5f62")
+		if _enemy_spawn_preview_valid:
+			spawn_color = Color("#f0b94f") if _enemy_spawn_preview_is_boss else Color("#b776ff")
+		draw_rect(_enemy_spawn_preview_rect, Color(spawn_color, 0.22), true)
+		draw_rect(_enemy_spawn_preview_rect, spawn_color, false, 5.0)
+		var spawn_center: Vector2 = _enemy_spawn_preview_rect.get_center()
+		draw_circle(spawn_center, minf(_enemy_spawn_preview_rect.size.x, _enemy_spawn_preview_rect.size.y) * 0.32, Color(spawn_color, 0.18), true)
+		draw_circle(spawn_center, minf(_enemy_spawn_preview_rect.size.x, _enemy_spawn_preview_rect.size.y) * 0.32, spawn_color, false, 3.0)
+		draw_line(_enemy_spawn_preview_rect.position, _enemy_spawn_preview_rect.end, Color(spawn_color, 0.72), 2.0)
+		draw_line(Vector2(_enemy_spawn_preview_rect.end.x, _enemy_spawn_preview_rect.position.y), Vector2(_enemy_spawn_preview_rect.position.x, _enemy_spawn_preview_rect.end.y), Color(spawn_color, 0.72), 2.0)
 	if _build_preview_visible:
 		var preview_color: Color = Color("#62dc78") if _build_preview_valid else Color("#ff5f62")
 		draw_rect(_build_preview_rect, Color(preview_color, 0.18), true)

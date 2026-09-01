@@ -1,0 +1,53 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://game/world/world_boss.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://art/units/world_boss_xuanyu.png" id="2_boss"]
+[ext_resource type="Texture2D" path="res://art/vfx/world_boss_lair.png" id="3_lair"]
+[ext_resource type="Shader" path="res://game/world/vfx/canvas_world_boss_aura.gdshader" id="4_aura"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_aura"]
+shader = ExtResource("4_aura")
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_boss"]
+size = Vector2(86, 78)
+
+[node name="WorldBoss" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 2
+motion_mode = 1
+script = ExtResource("1_script")
+
+[node name="Lair" type="Sprite2D" parent="."]
+texture_filter = 2
+z_index = -3
+texture = ExtResource("3_lair")
+
+[node name="Aura" type="Sprite2D" parent="."]
+texture_filter = 2
+material = SubResource("ShaderMaterial_aura")
+z_index = -2
+texture = ExtResource("3_lair")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture_filter = 2
+position = Vector2(0, -26)
+z_index = 4
+texture = ExtResource("2_boss")
+
+[node name="NameLabel" type="Label" parent="."]
+z_index = 951
+offset_left = -150.0
+offset_top = -132.0
+offset_right = 150.0
+offset_bottom = -108.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.784314, 0.258824, 1)
+theme_override_colors/font_outline_color = Color(0.0901961, 0.0117647, 0.00784314, 0.98)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 16
+text = "世界BOSS｜镇岳魔神·玄狱"
+horizontal_alignment = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, 8)
+shape = SubResource("RectangleShape2D_boss")
